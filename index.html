@@ -1,0 +1,3403 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 專業工具箱 Ultimate (Smooth Edition)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://unpkg.com/downloadjs@1.4.7/download.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#1f2937', 900: '#111827' }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        
+        * { box-sizing: border-box; }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: #f3f4f6;
+            color: #1e293b;
+            height: 100vh;
+            overflow: hidden;
+            margin: 0; padding: 0;
+            user-select: none;
+        }
+
+        /* ================= 工具列樣式 ================= */
+        .toolbar-dark {
+            background: #1e1e1e;
+            color: #e5e7eb;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            overflow-x: auto;
+            z-index: 100;
+            height: 64px;
+        }
+
+        .divider { width: 1px; height: 24px; background: #4b5563; margin: 0 4px; flex-shrink: 0; }
+
+        .tool-btn {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #9ca3af;
+            font-size: 0.75rem;
+            min-width: 45px;
+            border: 1px solid transparent;
+            flex-shrink: 0;
+        }
+        .tool-btn svg { margin-bottom: 2px; width: 20px; height: 20px; }
+        .tool-btn:hover { background: #374151; color: white; }
+        .tool-btn.active {
+            background: #6366f1; color: white;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none; border: none; width: 32px; height: 32px;
+            border-radius: 6px; cursor: pointer; padding: 0; overflow: hidden;
+            box-shadow: 0 0 0 1px #4b5563;
+        }
+        
+        .range-group { display: flex; flex-direction: column; gap: 2px; min-width: 80px; }
+        .range-row { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #9ca3af; }
+        input[type=range] {
+            -webkit-appearance: none; width: 60px; height: 4px; background: #4b5563; border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%;
+            background: #8b5cf6; cursor: pointer; margin-top: -4px;
+        }
+
+        /* ================= 畫布區域 ================= */
+        #canvas-container {
+            background-color: #525252;
+            background-image: radial-gradient(#6b7280 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow: auto;
+            position: relative;
+            flex: 1;
+            display: flex;
+            align-items: flex-start; 
+            justify-content: center;
+            padding: 40px;
+        }
+        canvas { 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            background: white;
+            margin: auto;
+        }
+
+        .dynamic-textarea {
+            position: fixed;
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px dashed #6366f1;
+            font-family: Arial, sans-serif;
+            padding: 2px;
+            min-width: 20px;
+            outline: none;
+            overflow: hidden;
+            white-space: pre;
+            z-index: 9999;
+            line-height: 1.2;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        /* ================= 右側工具箱 ================= */
+        .glass-panel { background: rgba(255, 255, 255, 0.98); border-left: 1px solid #e5e7eb; }
+        
+        .tool-nav {
+            display: flex; overflow-x: auto; gap: 4px; padding: 10px; 
+            border-bottom: 1px solid #e5e7eb; background: #f9fafb;
+            scrollbar-width: thin;
+        }
+        .tool-tab { 
+            padding: 8px 14px; border-radius: 6px; font-size: 0.85rem; 
+            cursor: pointer; color: #6b7280; white-space: nowrap; font-weight: 500;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .tool-tab:hover { background: #e5e7eb; color: #111827; transform: translateY(-1px); }
+        .tool-tab.active { 
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); 
+            color: white; 
+            font-weight: 600; 
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .tool-content { display: none; padding: 15px; height: calc(100% - 60px); overflow-y: auto; }
+        .tool-content.active { display: block; }
+
+        .btn { 
+            padding: 12px; border-radius: 8px; font-weight: 600; width: 100%; 
+            border:none; cursor: pointer; transition: all 0.2s; position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn:hover { 
+            filter: brightness(110%); 
+            transform: translateY(-2px); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .btn:active {
+            transform: translateY(0px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+
+        input, select, textarea {
+            width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; 
+            border-radius: 6px; margin-bottom: 10px; font-size: 0.9rem;
+            background: white;
+        }
+
+        .page-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+            max-height: 80px; overflow-y: auto; padding: 3px;
+            background: #f3f4f6; border-radius: 6px; border: 1px solid #e5e7eb;
+        }
+        .page-item {
+            aspect-ratio: 1/1; background: white; border: 1.5px solid #d1d5db;
+            border-radius: 4px; cursor: pointer; position: relative;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; color: #9ca3af;
+        }
+        .page-item:hover { border-color: #9ca3af; }
+        .page-item.selected { border-color: #ef4444; background: #fee2e2; }
+        .page-item.split-point { border-right: 4px solid #06b6d4; }
+
+        .progress-container { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+        .progress-bar { height: 100%; background: #3b82f6; transition: width 0.3s; }
+        
+        .spinner {
+            display: inline-block; width: 12px; height: 12px;
+            border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+            border-radius: 50%; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .main-layout { display: flex; height: calc(100vh - 64px); }
+        .left-panel { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+        .right-panel { width: 66vw; flex-shrink: 0; transition: width 0.3s; z-index: 50; overflow: hidden; }
+        .right-panel.collapsed { width: 0; border: none; overflow: hidden; }
+        .hidden { display: none !important; }
+
+        /* Zoom Control */
+        .zoom-control {
+            display: flex; align-items: center; background: #374151; border-radius: 6px; margin-left: 10px;
+        }
+        .zoom-btn {
+            color: white; padding: 0 10px; cursor: pointer; font-size: 1.2rem;
+            display: flex; align-items: center; justify-content: center; height: 36px;
+        }
+        .zoom-btn:hover { background: #4b5563; }
+        #zoom-level { min-width: 50px; text-align: center; font-size: 0.85rem; color: #d1d5db; }
+
+        /* PATCH: Resize HUD */
+        #resize-hud{
+            position: fixed;
+            left: 12px;
+            top: 76px; /* 避開工具列 */
+            z-index: 99999;
+            background: rgba(17,24,39,0.92);
+            color: #e5e7eb;
+            border: 1px solid rgba(255,255,255,0.12);
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar-dark">
+        <div class="tool-btn select-tool" data-tool="select" onclick="setTool('select')" title="選取物件">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg><span>選取</span>
+        </div>
+        <div class="tool-btn" data-tool="pan" onclick="setTool('pan')" title="平移畫布">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg><span>平移</span>
+        </div>
+        
+        <div class="divider"></div>
+
+        <div class="tool-btn active" data-tool="pen" onclick="setTool('pen')" title="畫筆">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg><span>畫筆</span>
+        </div>
+        <div class="tool-btn" data-tool="highlighter" onclick="setTool('highlighter')" title="螢光筆">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l-6 6v3h9l3-3"/><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg><span>螢光筆</span>
+        </div>
+        <div class="tool-btn" data-tool="text" onclick="setTool('text')" title="文字">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg><span>文字</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="tool-btn" data-tool="arrow" onclick="setTool('arrow')" title="箭頭">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg><span>箭頭</span>
+        </div>
+        <div class="tool-btn" data-tool="rect" onclick="setTool('rect')" title="矩形">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><span>矩形</span>
+        </div>
+        <div class="tool-btn" data-tool="fillRect" onclick="setTool('fillRect')" title="實心矩形">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><span>實心</span>
+        </div>
+        <div class="tool-btn" data-tool="circle" onclick="setTool('circle')" title="圓形">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg><span>圓形</span>
+        </div>
+        <div class="tool-btn" data-tool="image" onclick="setTool('image')" title="插入圖片">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span>圖片</span>
+        </div>
+        <div class="tool-btn" data-tool="signature" onclick="setTool('signature')" title="插入簽名">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17c3.333-3.333 5-5 9-5"/><path d="M12 12c1 4.5 2.5 6 4 6 2 0 3-1 3-3s-1-3-3-3c-2 0-2.5 1.5-2.5 3s.5 3 2.5 3"/><path d="M21 3l-4 4"/></svg><span>簽名</span>
+        </div>
+
+        <div class="divider"></div>
+        
+        <input type="color" id="editor-color" value="#ef4444" title="顏色">
+        
+        <div class="range-group">
+            <div class="range-row">
+                <span>粗</span><input type="range" id="stroke-width" min="1" max="20" value="2"><span id="stroke-display">2</span>
+            </div>
+            <div class="range-row">
+                <span>字</span><input type="range" id="font-size" min="12" max="120" value="24"><span id="font-display">24</span>
+            </div>
+        </div>
+        
+        <div class="divider"></div>
+        <div class="tool-btn" onclick="undo()" title="復原 (Ctrl+Z)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-9 9"/></svg><span>復原</span>
+        </div>
+        <div class="tool-btn" onclick="redo()" title="重做 (Ctrl+Y)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 019 9"/></svg><span>重做</span>
+        </div>
+        <div class="tool-btn" onclick="deleteSelected()" title="刪除選取物件 (Delete)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span>刪除</span>
+        </div>
+
+        <div class="zoom-control">
+            <div class="zoom-btn" onclick="changeZoom(-0.1)">-</div>
+            <input type="number" id="zoom-level" value="100" min="25" max="300" step="10"
+                   style="width: 60px; text-align: center; font-size: 0.85rem; background: transparent; border: none; outline: none; color: #d1d5db;"
+                   onchange="setZoomByInput()" onkeypress="if(event.key==='Enter') setZoomByInput()">
+            <span style="color: #d1d5db; font-size: 0.85rem;">%</span>
+            <div class="zoom-btn" onclick="changeZoom(0.1)">+</div>
+        </div>
+
+        <div class="flex items-center gap-2 ml-auto">
+             <button class="bg-gray-700 hover:bg-gray-600 text-white rounded px-2 py-1 text-sm" onclick="prevPage()">◀</button>
+             <span id="page-indicator" class="text-xs text-gray-400">--/--</span>
+             <button class="bg-gray-700 hover:bg-gray-600 text-white rounded px-2 py-1 text-sm" onclick="nextPage()">▶</button>
+             <button class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm font-bold ml-2" onclick="savePdf(event)">💾 匯出</button>
+             <button class="bg-gray-700 text-white px-2 py-1 rounded text-sm" onclick="toggleRightPanel()">工具箱</button>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        
+        <div class="left-panel">
+            <!-- PATCH: Resize HUD -->
+            <div id="resize-hud" class="hidden"></div>
+            
+            <div id="canvas-container">
+                <canvas id="pdf-canvas"></canvas>
+            </div>
+            
+            <!-- 簽名對話框 -->
+            <div id="signature-dialog" class="hidden" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+                <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 1.2rem; font-weight: 700; color: #1e293b;">✍️ 插入簽名</h3>
+                        <button onclick="closeSignatureDialog()" style="background: none; border: none; font-size: 1.5rem; color: #64748b; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">×</button>
+                    </div>
+                    
+                    <!-- 簽名類型選擇 -->
+                    <div style="margin-bottom: 16px;">
+                        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                            <button id="sig-draw-btn" class="sig-type-btn active" onclick="switchSignatureType('draw')" style="flex: 1; padding: 10px; border: 2px solid #3b82f6; background: #eff6ff; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #1e40af; transition: all 0.2s;">
+                                ✍️ 手繪
+                            </button>
+                            <button id="sig-text-btn" class="sig-type-btn" onclick="switchSignatureType('text')" style="flex: 1; padding: 10px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #64748b; transition: all 0.2s;">
+                                📝 文字
+                            </button>
+                            <button id="sig-image-btn" class="sig-type-btn" onclick="switchSignatureType('image')" style="flex: 1; padding: 10px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: #64748b; transition: all 0.2s;">
+                                🖼️ 圖片
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 手繪簽名區 -->
+                    <div id="sig-draw-area" style="margin-bottom: 16px;">
+                        <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 0.85rem; color: #64748b;">請在下方繪製您的簽名</span>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <label style="font-size: 0.75rem; color: #64748b;">顏色:</label>
+                                        <input type="color" id="signature-draw-color" value="#000000" style="width: 32px; height: 32px; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer;">
+                                    </div>
+                                </div>
+                                <button onclick="clearSignatureCanvas()" style="background: #fee2e2; color: #dc2626; border: none; padding: 4px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+                                    🗑️ 清除
+                                </button>
+                            </div>
+                            <canvas id="signature-canvas" width="440" height="200" style="width: 100%; border: 1px solid #e5e7eb; border-radius: 6px; cursor: crosshair; background: white; display: block;"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- 文字簽名區 -->
+                    <div id="sig-text-area" class="hidden" style="margin-bottom: 16px;">
+                        <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 12px;">
+                            <label style="font-size: 0.85rem; color: #64748b; display: block; margin-bottom: 8px;">輸入簽名文字</label>
+                            <input type="text" id="signature-text-input" placeholder="例如：張三" oninput="updateSignatureTextPreview()" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 1rem; margin-bottom: 8px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 80px; gap: 8px;">
+                                <div>
+                                    <label style="font-size: 0.75rem; color: #64748b; display: block; margin-bottom: 4px;">字體</label>
+                                    <select id="signature-font" onchange="updateSignatureTextPreview()" style="width: 100%; padding: 6px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.85rem;">
+                                        <option value="Arial">Arial</option>
+                                        <option value="'Times New Roman'">Times New Roman</option>
+                                        <option value="'Courier New'">Courier New</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="'Comic Sans MS'">Comic Sans MS</option>
+                                        <option value="cursive" selected>手寫體</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75rem; color: #64748b; display: block; margin-bottom: 4px;">大小</label>
+                                    <select id="signature-fontsize" onchange="updateSignatureTextPreview()" style="width: 100%; padding: 6px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.85rem;">
+                                        <option value="24">小</option>
+                                        <option value="32" selected>中</option>
+                                        <option value="48">大</option>
+                                        <option value="64">特大</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.75rem; color: #64748b; display: block; margin-bottom: 4px;">顏色</label>
+                                    <input type="color" id="signature-text-color" value="#1e293b" onchange="updateSignatureTextPreview()" style="width: 100%; height: 32px; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer;">
+                                </div>
+                            </div>
+                            <div id="signature-text-preview" style="margin-top: 12px; padding: 20px; background: white; border: 1px solid #e5e7eb; border-radius: 6px; text-align: center; min-height: 80px; display: flex; align-items: center; justify-content: center; font-family: cursive; font-size: 32px; color: #1e293b;">
+                                簽名預覽
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 圖片簽名區 -->
+                    <div id="sig-image-area" class="hidden" style="margin-bottom: 16px;">
+                        <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 12px; text-align: center;">
+                            <input type="file" id="signature-image-input" accept="image/*" style="display: none;" onchange="previewSignatureImage(this)">
+                            <button onclick="document.getElementById('signature-image-input').click()" style="background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.2s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+                                📁 選擇圖片
+                            </button>
+                            <div id="signature-image-preview" class="hidden" style="margin-top: 12px; max-height: 150px; display: flex; justify-content: center;">
+                                <img id="signature-image-preview-img" style="max-width: 100%; max-height: 150px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作按鈕 -->
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="closeSignatureDialog()" style="flex: 1; padding: 12px; background: #f1f5f9; color: #475569; border: none; border-radius: 8px; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                            取消
+                        </button>
+                        <button onclick="insertSignature()" style="flex: 2; padding: 12px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.95rem; font-weight: 600; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(59, 130, 246, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.3)'">
+                            ✅ 插入簽名
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <input type="file" id="pdf-input" accept="application/pdf" class="hidden" onchange="loadPdfForEdit(this.files[0])">
+            <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageUpload(this)">
+            
+            <div id="welcome-msg" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-100/95 z-50">
+                <div class="text-6xl mb-4">📄</div>
+                <h2 class="text-2xl font-bold text-gray-700 mb-2">PDF 專業工具箱 Ultimate</h2>
+                <p class="text-gray-500 mb-4">全功能回歸 + 平滑螢光筆修復</p>
+                <button class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-700 transition" onclick="document.getElementById('pdf-input').click()">
+                    📂 開啟 PDF 進行編輯
+                </button>
+            </div>
+        </div>
+
+        <div class="right-panel glass-panel collapsed" id="right-panel">
+            <!-- 快捷提示面板 -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; color: white;">
+                <div style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px;">🛠️ PDF 專業工具箱</div>
+                <div style="font-size: 0.75rem; opacity: 0.9; line-height: 1.4;">
+                    提供11種專業PDF處理工具，支援合併、切分、壓縮、加密等功能
+                </div>
+                <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                    <span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem;">✨ 全離線處理</span>
+                    <span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem;">🔒 隱私安全</span>
+                    <span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem;">⚡ 快速高效</span>
+                </div>
+            </div>
+            
+            <div class="tool-nav">
+                <div class="tool-tab active" onclick="switchTab(this, 'merge')">合併</div>
+                <div class="tool-tab" onclick="switchTab(this, 'split')">切分</div>
+                <div class="tool-tab" onclick="switchTab(this, 'extract')">提取</div>
+                <div class="tool-tab" onclick="switchTab(this, 'compress')">壓縮</div>
+                <div class="tool-tab" onclick="switchTab(this, 'encrypt')">加密</div>
+                <div class="tool-tab" onclick="switchTab(this, 'pagenumber')">頁碼</div>
+                <div class="tool-tab" onclick="switchTab(this, 'pdf2img')">轉圖</div>
+                <div class="tool-tab" onclick="switchTab(this, 'img2pdf')">圖轉PDF</div>
+                <div class="tool-tab" onclick="switchTab(this, 'watermark')">浮水印</div>
+                <div class="tool-tab" onclick="switchTab(this, 'rotate')">旋轉</div>
+                <div class="tool-tab" onclick="switchTab(this, 'delete')">刪除頁</div>
+            </div>
+
+            <div id="merge" class="tool-content active">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">📚 合併 PDF</h3>
+                <p class="text-xs text-gray-600 mb-3">選擇多個PDF檔案後可手動調整順序</p>
+                
+                <div class="p-4 border-2 dashed border-slate-300 rounded text-center cursor-pointer hover:bg-slate-50 mb-2 transition" onclick="document.getElementById('merge-files').click()">
+                    <div class="text-3xl mb-2">📁</div>
+                    <div class="text-sm text-gray-600">點擊選擇多個 PDF 檔案</div>
+                </div>
+                
+                <input type="file" id="merge-files" multiple accept="application/pdf" class="hidden" onchange="handleMergeFiles(this)">
+                
+                <!-- 檔案列表 -->
+                <div id="merge-list-container" class="hidden mb-3">
+                    <div class="text-xs text-gray-600 mb-2 flex justify-between items-center">
+                        <span id="merge-count">0 個檔案</span>
+                        <button class="text-red-500 hover:text-red-700" onclick="clearMergeList()">清除全部</button>
+                    </div>
+                    <div id="merge-list" class="bg-gray-50 rounded-lg p-2 max-h-96 overflow-y-auto text-xs">
+                        <!-- 檔案列表將插入這裡 -->
+                    </div>
+                </div>
+                
+                <button id="btn-merge" class="btn bg-blue-600 text-white" onclick="runMerge()">🔗 開始合併</button>
+                
+                <style>
+                    .merge-file-item {
+                        background: white;
+                        padding: 8px;
+                        border-radius: 6px;
+                        margin-bottom: 8px;
+                        border: 1px solid #e5e7eb;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    }
+                    .merge-file-item .merge-card-name {
+                        font-size: 11px;
+                        color: #6b7280;
+                        margin-bottom: 5px;
+                        padding-bottom: 3px;
+                        border-bottom: 1px solid #e5e7eb;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    }
+                    .merge-file-item .number {
+                        background: #3b82f6;
+                        color: white;
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 10px;
+                        font-weight: bold;
+                        flex-shrink: 0;
+                    }
+                    .merge-card-controls {
+                        display: flex;
+                        gap: 4px;
+                        margin-top: 5px;
+                    }
+                    .merge-card-btn {
+                        flex: 1;
+                        padding: 4px 8px;
+                        border: none;
+                        border-radius: 4px;
+                        font-size: 10px;
+                        cursor: pointer;
+                        background: #f3f4f6;
+                        color: #374151;
+                        transition: all 0.2s;
+                    }
+                    .merge-card-btn:hover {
+                        background: #e5e7eb;
+                    }
+                    .merge-card-btn.delete {
+                        background: #fee2e2;
+                        color: #dc2626;
+                    }
+                    .merge-card-btn.delete:hover {
+                        background: #fecaca;
+                    }
+                    .merge-file-item .name {
+                        flex: 1;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    }
+                </style>
+            </div>
+
+            <div id="split" class="tool-content">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">✂️ 切分/提取</h3>
+                <div class="flex gap-2 mb-2">
+                    <label class="flex-1 text-sm border p-2 rounded cursor-pointer bg-slate-50"><input type="radio" name="split-mode" value="point" checked onchange="toggleSplitMode()"> 切分點(Zip)</label>
+                    <label class="flex-1 text-sm border p-2 rounded cursor-pointer bg-slate-50"><input type="radio" name="split-mode" value="select" onchange="toggleSplitMode()"> 選取(PDF)</label>
+                </div>
+                <input type="file" id="split-file" accept="application/pdf" onchange="previewPages(this, 'split-grid')" style="margin-bottom: 6px;">
+                
+                <!-- 頁碼選擇方式 -->
+                <div class="flex gap-1" style="margin-bottom: 4px;">
+                    <label class="flex-1 text-xs border p-1 rounded cursor-pointer">
+                        <input type="radio" name="split-page-mode" value="visual" checked onchange="toggleSplitPageMode()"> 視覺選擇
+                    </label>
+                    <label class="flex-1 text-xs border p-1 rounded cursor-pointer">
+                        <input type="radio" name="split-page-mode" value="range" onchange="toggleSplitPageMode()"> 輸入範圍
+                    </label>
+                </div>
+                
+                <!-- 視覺選擇模式 -->
+                <div id="split-visual-mode">
+                    <div id="split-grid" class="page-grid" style="margin-bottom: 4px;"></div>
+                </div>
+                
+                <!-- 範圍輸入模式 -->
+                <div id="split-range-mode" class="hidden">
+                    <div class="grid grid-cols-2 gap-2" style="margin-bottom: 4px;">
+                        <div>
+                            <label class="text-xs text-gray-600 block mb-1">起始頁</label>
+                            <input type="number" id="split-start-page" min="1" value="1" placeholder="1" class="text-sm w-full">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-600 block mb-1">結束頁</label>
+                            <input type="number" id="split-end-page" min="1" value="" placeholder="最後一頁" class="text-sm w-full">
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-500" style="margin-bottom: 4px;">💡 留空結束頁 = 提取到最後</div>
+                </div>
+                
+                <button id="btn-split" class="btn bg-cyan-600 text-white" onclick="runSplit()">✂️ 執行處理</button>
+            </div>
+
+            <div id="extract" class="tool-content">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">📝 提取文字</h3>
+                
+                <!-- 新增:提取模式選單 -->
+                <div class="bg-gray-50 p-2 rounded-lg mb-2">
+                    <label class="text-xs text-gray-600 block mb-1 font-semibold">提取模式</label>
+                    <select id="extract-mode" class="text-sm w-full" onchange="updateExtractModeHint()">
+                        <option value="auto">🤖 自動判斷（表格優先）</option>
+                        <option value="table">📊 強制表格 TSV</option>
+                        <option value="paragraph">📄 段落文本（Word/Email）</option>
+                    </select>
+                    <div class="text-xs text-gray-500 mt-1" id="extract-mode-hint">
+                        💡 自動模式會智能檢測文檔結構並選擇最佳方式
+                    </div>
+                </div>
+                
+                <input type="file" id="text-file" accept="application/pdf" onchange="previewPages(this, 'extract-grid')" style="margin-bottom: 6px;">
+                
+                <!-- 頁碼選擇方式 -->
+                <div class="flex gap-1" style="margin-bottom: 4px;">
+                    <label class="flex-1 text-xs border p-1 rounded cursor-pointer">
+                        <input type="radio" name="extract-page-mode" value="visual" checked onchange="toggleExtractPageMode()"> 視覺選擇
+                    </label>
+                    <label class="flex-1 text-xs border p-1 rounded cursor-pointer">
+                        <input type="radio" name="extract-page-mode" value="range" onchange="toggleExtractPageMode()"> 輸入範圍
+                    </label>
+                </div>
+                
+                <!-- 視覺選擇模式 -->
+                <div id="extract-visual-mode">
+                    <div id="extract-grid" class="page-grid" style="margin-bottom: 4px;"></div>
+                </div>
+                
+                <!-- 範圍輸入模式 -->
+                <div id="extract-range-mode" class="hidden">
+                    <div class="grid grid-cols-2 gap-2" style="margin-bottom: 4px;">
+                        <div>
+                            <label class="text-xs text-gray-600 block mb-1">起始頁</label>
+                            <input type="number" id="extract-start-page" min="1" value="1" placeholder="1" class="text-sm w-full">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-600 block mb-1">結束頁</label>
+                            <input type="number" id="extract-end-page" min="1" value="" placeholder="最後一頁" class="text-sm w-full">
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-500" style="margin-bottom: 4px;">💡 留空結束頁 = 提取到最後</div>
+                </div>
+                
+                <button id="btn-text" class="btn bg-green-600 text-white" onclick="runExtractText()" style="margin-top: 4px; margin-bottom: 4px;">📝 開始提取</button>
+                
+                <!-- 進度條 -->
+                <div id="extract-progress" class="hidden progress-container mb-2">
+                    <div id="extract-bar" class="progress-bar" style="width:0%"></div>
+                </div>
+                
+                <!-- 結果區域 -->
+                <div id="extract-result-container" class="hidden">
+                    <div class="flex gap-2 mb-2">
+                        <button class="btn bg-blue-500 text-white text-sm flex-1" onclick="copyExtractedText()">
+                            📋 複製文字
+                        </button>
+                        <button class="btn bg-purple-500 text-white text-sm flex-1" onclick="downloadExtractedText()">
+                            💾 下載 TXT
+                        </button>
+                    </div>
+                    <div class="text-xs text-gray-500 mb-1 flex justify-between">
+                        <span id="extract-stats">共 0 字</span>
+                        <span id="extract-pages-info">0 頁</span>
+                        <span id="extract-mode-used" class="font-semibold text-blue-600"></span>
+                    </div>
+                    <textarea id="text-result" rows="15" placeholder="提取的文字將顯示在這裡..." class="text-xs font-mono" style="resize: vertical; min-height: 200px; max-height: 400px; overflow-y: auto; color: #1e293b; background: white;"></textarea>
+                </div>
+            </div>
+
+            <div id="compress" class="tool-content">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">🗜️ 壓縮 PDF</h3>
+                <p class="text-xs text-gray-600 mb-2">減少PDF檔案大小，適合email傳送或網路分享</p>
+                
+                <input type="file" id="compress-file" accept="application/pdf" style="margin-bottom: 6px;">
+                
+                <!-- 壓縮等級選項 -->
+                <div class="bg-gray-50 p-2 rounded-lg mb-2">
+                    <label class="text-xs text-gray-600 block mb-1 font-semibold">壓縮等級</label>
+                    <select id="compress-level" class="text-sm w-full" onchange="updateCompressHint()">
+                        <option value="low">低壓縮 (高品質，檔案較大)</option>
+                        <option value="medium" selected>中壓縮 (平衡品質與大小) 推薦</option>
+                        <option value="high">高壓縮 (檔案最小，品質降低)</option>
+                    </select>
+                    <div class="text-xs text-gray-500 mt-1" id="compress-hint">
+                        ⚖️ 平衡模式: 在保持可讀性的同時有效減少檔案大小
+                    </div>
+                </div>
+                
+                <!-- 壓縮選項 -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-2">
+                    <div class="text-xs font-semibold text-blue-900 mb-1">壓縮方式</div>
+                    <label class="flex items-center gap-2 text-xs text-gray-700 mb-1">
+                        <input type="checkbox" id="compress-images" checked class="w-4 h-4">
+                        <span>壓縮嵌入圖片 (主要減少空間)</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-gray-700">
+                        <input type="checkbox" id="remove-metadata" class="w-4 h-4">
+                        <span>移除元數據 (作者、建立日期等)</span>
+                    </label>
+                </div>
+                
+                <button id="btn-compress" class="btn bg-orange-600 text-white" onclick="runCompress()">🗜️ 開始壓縮</button>
+                
+                <!-- 進度條 -->
+                <div id="compress-progress" class="hidden mt-2">
+                    <div class="text-xs text-gray-600 mb-1 flex justify-between">
+                        <span>處理中...</span>
+                        <span id="compress-progress-text">0%</span>
+                    </div>
+                    <div class="progress-container">
+                        <div id="compress-bar" class="progress-bar" style="width:0%"></div>
+                    </div>
+                </div>
+                
+                <!-- 壓縮結果 -->
+                <div id="compress-result" class="hidden mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div class="text-sm font-semibold text-green-900 mb-2">✅ 壓縮完成！</div>
+                    <div class="text-xs text-gray-700">
+                        <div class="flex justify-between mb-1">
+                            <span>原始大小:</span>
+                            <span id="original-size" class="font-semibold">-</span>
+                        </div>
+                        <div class="flex justify-between mb-1">
+                            <span>壓縮後:</span>
+                            <span id="compressed-size" class="font-semibold text-green-600">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>節省空間:</span>
+                            <span id="saved-percent" class="font-bold text-green-700">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="encrypt" class="tool-content">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">🔒 加密 / 解密 PDF</h3>
+                
+                <!-- 模式切換 -->
+                <div class="flex gap-1" style="margin-bottom: 4px;">
+                    <label class="flex-1 text-xs border p-1 rounded cursor-pointer" style="border-color: #cbd5e1;">
+                        <input type="radio" name="encrypt-mode" value="encrypt" checked onchange="toggleEncryptMode()">
+                        🔐 加密
+                    </label>
+                    <label class="flex-1 text-xs border p-1 rounded cursor-pointer" style="border-color: #cbd5e1;">
+                        <input type="radio" name="encrypt-mode" value="decrypt" onchange="toggleEncryptMode()">
+                        🔓 解密
+                    </label>
+                </div>
+                
+                <input type="file" id="encrypt-file" accept="application/pdf" style="margin-bottom: 4px;">
+                
+                <!-- 加密選項 -->
+                <div id="encrypt-options">
+                    <input type="password" id="encrypt-password" placeholder="輸入密碼（至少4位）" style="margin-bottom: 4px;">
+                    <input type="password" id="encrypt-password-confirm" placeholder="確認密碼" style="margin-bottom: 4px;">
+                    
+                    <div class="flex gap-2 text-xs" style="margin-bottom: 4px;">
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" id="allow-print" checked class="w-3 h-3">列印
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" id="allow-copy" class="w-3 h-3">複製
+                        </label>
+                        <label class="flex items-center gap-1">
+                            <input type="checkbox" id="allow-modify" class="w-3 h-3">修改
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- 解密選項 -->
+                <div id="decrypt-options" class="hidden">
+                    <input type="password" id="decrypt-password" placeholder="輸入PDF密碼" style="margin-bottom: 4px;">
+                </div>
+                
+                <button id="btn-encrypt" class="btn bg-indigo-600 text-white" onclick="runEncrypt()">🔒 執行加密</button>
+            </div>
+
+            <div id="pagenumber" class="tool-content">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">🔢 添加頁碼</h3>
+                
+                <input type="file" id="pagenumber-file" accept="application/pdf" style="margin-bottom: 4px;">
+                
+                <div class="grid grid-cols-2 gap-2" style="margin-bottom: 4px;">
+                    <div>
+                        <label class="text-xs text-gray-600 block mb-1">位置</label>
+                        <select id="page-position" class="text-xs w-full">
+                            <option value="bottom-center">底部居中</option>
+                            <option value="bottom-right">底部右側</option>
+                            <option value="bottom-left">底部左側</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-600 block mb-1">大小</label>
+                        <select id="page-fontsize" class="text-xs w-full">
+                            <option value="8">小</option>
+                            <option value="10" selected>中</option>
+                            <option value="12">大</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 4px;">
+                    <label class="text-xs text-gray-600 block mb-1">格式</label>
+                    <select id="page-format" class="text-xs w-full">
+                        <option value="number">1, 2, 3...</option>
+                        <option value="page-number" selected>第 1 頁</option>
+                        <option value="number-total">1/10</option>
+                    </select>
+                </div>
+                
+                <button id="btn-pagenumber" class="btn bg-purple-600 text-white" onclick="runPageNumber()">🔢 添加頁碼</button>
+            </div>
+
+            <div id="pdf2img" class="tool-content">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">🖼️ PDF 轉圖片</h3>
+                <p class="text-xs text-gray-600 mb-3">將PDF的每一頁轉換成高清圖片</p>
+                
+                <input type="file" id="p2i-file" accept="application/pdf" style="margin-bottom: 6px;">
+                
+                <div class="bg-gray-50 p-2 rounded-lg mb-2">
+                    <div class="text-xs font-semibold text-gray-700 mb-2">輸出設定</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-gray-600 block mb-1">圖片格式</label>
+                            <select id="p2i-format" class="text-sm">
+                                <option value="png">PNG (無損)</option>
+                                <option value="jpeg" selected>JPG (較小)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-600 block mb-1">解析度</label>
+                            <select id="p2i-scale" class="text-sm">
+                                <option value="1.5">標準 1.5x</option>
+                                <option value="2" selected>高清 2x</option>
+                                <option value="3">超清 3x</option>
+                                <option value="4">極清 4x</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <button id="btn-p2i" class="btn bg-purple-600 text-white" onclick="runPdfToImage()">🎨 開始轉換 (Zip)</button>
+                
+                <div id="p2i-progress" class="hidden mt-2">
+                    <div class="text-xs text-gray-600 mb-1 flex justify-between">
+                        <span>轉換進度</span>
+                        <span id="p2i-progress-text">0%</span>
+                    </div>
+                    <div class="progress-container">
+                        <div id="p2i-bar" class="progress-bar" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="img2pdf" class="tool-content">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">📄 圖片轉 PDF</h3>
+                <p class="text-xs text-gray-600 mb-3">系統會預設依檔名排序。您可以使用圖片下方的按鈕手動調整順序。</p>
+                <input type="file" id="i2p-files" accept="image/*" multiple onchange="handleImagesWithPreview(this)">
+                
+                <!-- 圖片預覽區域 -->
+                <div id="i2p-preview-container" class="hidden" style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #f9fafb; margin-top: 10px;">
+                    <!-- 動態生成的圖片卡片將插入這裡 -->
+                </div>
+                
+                <button id="btn-i2p" class="btn bg-pink-600 text-white mt-3" onclick="runImg2PdfNew()">📑 生成 PDF</button>
+                
+                <style>
+                    .img-card {
+                        background: white;
+                        margin-bottom: 10px;
+                        padding: 8px;
+                        border-radius: 6px;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    }
+                    .img-card-name {
+                        font-size: 11px;
+                        color: #6b7280;
+                        margin-bottom: 5px;
+                        padding-bottom: 3px;
+                        border-bottom: 1px solid #e5e7eb;
+                    }
+                    .img-card img {
+                        width: 100%;
+                        height: auto;
+                        border-radius: 4px;
+                    }
+                    .img-card-controls {
+                        display: flex;
+                        gap: 5px;
+                        margin-top: 5px;
+                        padding-top: 5px;
+                        border-top: 1px dashed #e5e7eb;
+                    }
+                    .img-card-btn {
+                        flex: 1;
+                        padding: 4px 8px;
+                        font-size: 11px;
+                        border: 1px solid #d1d5db;
+                        background: #f3f4f6;
+                        cursor: pointer;
+                        border-radius: 4px;
+                        transition: all 0.2s;
+                    }
+                    .img-card-btn:hover {
+                        background: #e5e7eb;
+                    }
+                    .img-card-btn:disabled {
+                        color: #d1d5db;
+                        cursor: not-allowed;
+                    }
+                    .img-card-btn.delete {
+                        color: #ef4444;
+                    }
+                </style>
+            </div>
+
+            <div id="watermark" class="tool-content">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">💧 浮水印</h3>
+                
+                <input type="file" id="wm-file" accept="application/pdf" style="margin-bottom: 4px;">
+                
+                <div class="flex gap-1" style="margin-bottom: 4px;">
+                    <label class="flex-1 text-xs border p-1 rounded cursor-pointer">
+                        <input type="radio" name="wm-type" value="text" checked onchange="toggleWmType()"> 📝 文字
+                    </label>
+                    <label class="flex-1 text-xs border p-1 rounded cursor-pointer">
+                        <input type="radio" name="wm-type" value="image" onchange="toggleWmType()"> 🖼️ 圖片
+                    </label>
+                </div>
+                
+                <div id="wm-text-opts">
+                    <input type="text" id="wm-text" placeholder="浮水印文字" style="margin-bottom: 4px;">
+                    
+                    <div class="grid grid-cols-2 gap-2" style="margin-bottom: 4px;">
+                        <select id="wm-font-size" class="text-xs">
+                            <option value="30">小</option>
+                            <option value="50" selected>中</option>
+                            <option value="70">大</option>
+                        </select>
+                        <select id="wm-opacity" class="text-xs">
+                            <option value="0.3">30%</option>
+                            <option value="0.5" selected>50%</option>
+                            <option value="0.7">70%</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="wm-img-opts" class="hidden">
+                    <input type="file" id="wm-img-file" accept="image/*" style="margin-bottom: 4px;">
+                </div>
+                
+                <button id="btn-wm" class="btn bg-teal-600 text-white" onclick="runWatermark()">💧 添加浮水印</button>
+            </div>
+
+            <div id="rotate" class="tool-content">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">🔄 旋轉頁面</h3>
+                <p class="text-xs text-gray-600 mb-3">選擇頁面並旋轉(未選擇時將旋轉所有頁面)</p>
+                
+                <input type="file" id="rotate-file" accept="application/pdf" onchange="previewPages(this, 'rotate-grid')" style="margin-bottom: 6px;">
+                <div id="rotate-grid" class="page-grid mb-3"></div>
+                
+                <div class="bg-gray-50 p-2 rounded-lg mb-2">
+                    <label class="text-xs text-gray-600 block mb-2">旋轉角度</label>
+                    <select id="rotate-deg" class="text-sm">
+                        <option value="90">⟳ 順時針 90°</option>
+                        <option value="180">⟲ 180° (上下顛倒)</option>
+                        <option value="270">⟲ 逆時針 90°</option>
+                    </select>
+                </div>
+                
+                <button id="btn-rotate" class="btn bg-orange-600 text-white" onclick="runRotate()">🔄 執行旋轉</button>
+            </div>
+
+            <div id="delete" class="tool-content">
+                <h3 class="font-bold text-lg mb-1 text-slate-800">🗑️ 刪除頁面</h3>
+                <p class="text-xs text-gray-600 mb-3">選擇要刪除的頁面,保留未選擇的頁面</p>
+                
+                <input type="file" id="delete-file" accept="application/pdf" onchange="previewPages(this, 'delete-grid')" style="margin-bottom: 6px;">
+                <div id="delete-grid" class="page-grid mb-2"></div>
+                
+                <div class="bg-red-50 border border-red-200 rounded-lg p-2 mb-2 text-xs text-red-700">
+                    ⚠️ 提醒: 點擊頁面選中後,該頁面將被刪除
+                </div>
+                
+                <button id="btn-delete" class="btn bg-red-600 text-white hover:bg-red-700" onclick="runDelete()">🗑️ 確認刪除</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { PDFDocument, rgb, degrees, StandardFonts } = PDFLib;
+
+        // ==================== 編輯器核心邏輯 ====================
+        let pdfDoc = null, pdfFile = null, currentPage = 1, totalPages = 0;
+        let pdfScale = 1.0; 
+        let currentZoom = 1.0; // 縮放狀態
+        const canvas = document.getElementById('pdf-canvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+        
+        let currentTool = 'pen';
+        let canvasObjects = [];
+        let allPageEdits = {};
+        let selectedObject = null;
+        
+        let isDrawing = false, isDraggingObj = false, isPanning = false;
+        let startX = 0, startY = 0, lastX = 0, lastY = 0;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        let panStartX = 0, panStartY = 0, panScrollLeft = 0, panScrollTop = 0;
+
+        const settings = { color: '#ef4444', strokeWidth: 2, fontSize: 24 };
+
+        // =============================
+        // PATCH: Undo/Redo History Management
+        // =============================
+        let historyStack = [];        // 歷史記錄堆疊
+        let historyIndex = -1;        // 當前位置索引
+        const MAX_HISTORY = 50;       // 最大歷史記錄數
+
+        function saveHistory() {
+            // 移除當前索引之後的所有記錄（因為有新的操作）
+            historyStack = historyStack.slice(0, historyIndex + 1);
+            
+            // 保存當前狀態
+            const state = {
+                objects: JSON.parse(JSON.stringify(canvasObjects)),
+                page: currentPage
+            };
+            
+            historyStack.push(state);
+            
+            // 限制歷史記錄數量
+            if (historyStack.length > MAX_HISTORY) {
+                historyStack.shift();
+            } else {
+                historyIndex++;
+            }
+        }
+
+        function undo() {
+            if (historyIndex <= 0) {
+                console.log('沒有可復原的操作');
+                return;
+            }
+            
+            historyIndex--;
+            const state = historyStack[historyIndex];
+            
+            // 如果是同一頁，直接恢復
+            if (state.page === currentPage) {
+                canvasObjects = JSON.parse(JSON.stringify(state.objects));
+                selectedObject = null;
+                redrawCanvas();
+            } else {
+                // 如果是不同頁，需要切換頁面
+                renderPage(state.page).then(() => {
+                    canvasObjects = JSON.parse(JSON.stringify(state.objects));
+                    selectedObject = null;
+                    redrawCanvas();
+                });
+            }
+        }
+
+        function redo() {
+            if (historyIndex >= historyStack.length - 1) {
+                console.log('沒有可重做的操作');
+                return;
+            }
+            
+            historyIndex++;
+            const state = historyStack[historyIndex];
+            
+            // 如果是同一頁，直接恢復
+            if (state.page === currentPage) {
+                canvasObjects = JSON.parse(JSON.stringify(state.objects));
+                selectedObject = null;
+                redrawCanvas();
+            } else {
+                // 如果是不同頁，需要切換頁面
+                renderPage(state.page).then(() => {
+                    canvasObjects = JSON.parse(JSON.stringify(state.objects));
+                    selectedObject = null;
+                    redrawCanvas();
+                });
+            }
+        }
+
+        // 鍵盤快捷鍵
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+Z 或 Cmd+Z - 復原
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undo();
+            }
+            // Ctrl+Y 或 Cmd+Y 或 Ctrl+Shift+Z - 重做
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                e.preventDefault();
+                redo();
+            }
+            // Delete 或 Backspace - 刪除選取物件
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObject) {
+                e.preventDefault();
+                deleteSelected();
+            }
+        });
+
+        // =============================
+        // PATCH: Multi-line text helpers + modifier keys + HUD
+        // =============================
+        function normalizeNewlines(s) {
+            return (s || '').toString().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        }
+
+        function getTextMetricsForCanvas(ctx, obj) {
+            const fontSize = Math.max(6, parseInt(obj.fontSize || 12, 10));
+            const text = normalizeNewlines(obj.content);
+            const lines = text.split('\n');
+            const lineHeight = fontSize * 1.25;
+
+            ctx.save();
+            // 修復:使用物件的 fontFamily 屬性,如果沒有則使用 Arial
+            const fontFamily = obj.fontFamily || 'Arial';
+            ctx.font = fontSize + "px " + fontFamily;
+            const widths = lines.map(line => ctx.measureText(line).width);
+            ctx.restore();
+
+            const w = Math.max(1, ...widths, 1);
+            const h = Math.max(1, lines.length * lineHeight);
+            return { fontSize, lineHeight, lines, w, h };
+        }
+
+        function getTextBounds(ctx, obj) {
+            const m = getTextMetricsForCanvas(ctx, obj);
+            return { x: obj.x || 0, y: obj.y || 0, w: m.w, h: m.h };
+        }
+
+        // Modifier keys (Ctrl = lock aspect ratio, Alt = resize from center)
+        window.__MOD_KEYS__ = { shift: false, alt: false, ctrl: false };
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Shift') window.__MOD_KEYS__.shift = true;
+            if (e.key === 'Alt') window.__MOD_KEYS__.alt = true;
+            if (e.key === 'Control') window.__MOD_KEYS__.ctrl = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'Shift') window.__MOD_KEYS__.shift = false;
+            if (e.key === 'Alt') window.__MOD_KEYS__.alt = false;
+            if (e.key === 'Control') window.__MOD_KEYS__.ctrl = false;
+        });
+        window.addEventListener('blur', () => {
+            window.__MOD_KEYS__.shift = false;
+            window.__MOD_KEYS__.alt = false;
+            window.__MOD_KEYS__.ctrl = false;
+        });
+
+        // HUD helpers
+        function showResizeHud(html) {
+            const el = document.getElementById('resize-hud');
+            if (!el) return;
+            el.innerHTML = html;
+            el.classList.remove('hidden');
+        }
+        function hideResizeHud() {
+            const el = document.getElementById('resize-hud');
+            if (!el) return;
+            el.classList.add('hidden');
+        }
+
+        // hexToRgb01 helper for savePdf
+        function hexToRgb01(hex) {
+            hex = (hex || '#000000').replace(/^#/, '');
+            if (hex.length === 3) {
+                hex = hex.split('').map(c => c + c).join('');
+            }
+            const r = parseInt(hex.substring(0, 2), 16) / 255;
+            const g = parseInt(hex.substring(2, 4), 16) / 255;
+            const b = parseInt(hex.substring(4, 6), 16) / 255;
+            return { r, g, b };
+        }
+
+
+        // 貝茲曲線平滑化輔助函式
+        function getMidPoint(p1, p2) {
+            return {
+                x: p1.x + (p2.x - p1.x) / 2,
+                y: p1.y + (p2.y - p1.y) / 2
+            };
+        }
+
+        // 縮放邏輯
+        async function changeZoom(delta) {
+            if(!pdfDoc) return;
+            const newZoom = currentZoom + delta;
+            if(newZoom >= 0.25 && newZoom <= 3.0) {
+                currentZoom = newZoom;
+                document.getElementById('zoom-level').value = Math.round(currentZoom * 100);
+                await renderPage(currentPage);
+            }
+        }
+
+        async function setZoomByInput() {
+            if(!pdfDoc) return;
+            const inputValue = parseInt(document.getElementById('zoom-level').value);
+            if(isNaN(inputValue)) return;
+            
+            const newZoom = Math.max(25, Math.min(300, inputValue)) / 100;
+            if(Math.abs(newZoom - currentZoom) > 0.01) {
+                currentZoom = newZoom;
+                document.getElementById('zoom-level').value = Math.round(currentZoom * 100);
+                await renderPage(currentPage);
+            }
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-tool="${tool}"]`)?.classList.add('active');
+            
+            if(tool === 'pan') container.style.cursor = 'grab';
+            else if(tool === 'select') container.style.cursor = 'default';
+            else if(tool === 'text') container.style.cursor = 'text';
+            else container.style.cursor = 'crosshair';
+
+            if(tool === 'image') document.getElementById('image-input').click();
+            if(tool === 'signature') openSignatureDialog();
+            
+            if(tool !== 'select') { selectedObject = null; redrawCanvas(); }
+        }
+
+        async function loadPdfForEdit(file) {
+            if(!file) return;
+            pdfFile = file;  // 保存檔案供匯出使用
+            document.getElementById('welcome-msg').style.display = 'none';
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+            pdfDoc = await loadingTask.promise;
+            totalPages = pdfDoc.numPages;
+            currentPage = 1;
+            allPageEdits = {};
+            currentZoom = 1.0; 
+            document.getElementById('zoom-level').value = 100;
+            await renderPage(1);
+        }
+
+        async function renderPage(num) {
+            if(!pdfDoc) return;
+            if(currentPage && canvasObjects.length > 0) allPageEdits[currentPage] = JSON.parse(JSON.stringify(canvasObjects));
+            else if(currentPage) allPageEdits[currentPage] = [];
+
+            currentPage = num;
+            document.getElementById('page-indicator').textContent = `${currentPage} / ${totalPages}`;
+            
+            const page = await pdfDoc.getPage(num);
+            // 關鍵：Scale * Zoom
+            const viewport = page.getViewport({ scale: pdfScale * currentZoom });
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            canvas.style.width = viewport.width + 'px';
+            canvas.style.height = viewport.height + 'px';
+            
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+            window.pageBgImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            canvasObjects = allPageEdits[num] ? JSON.parse(JSON.stringify(allPageEdits[num])) : [];
+            await restoreImages(canvasObjects);
+            redrawCanvas();
+            
+            // 初始化當前頁面的歷史記錄
+            saveHistory();
+        }
+
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return { 
+                x: ((e.clientX - rect.left) * scaleX) / currentZoom, 
+                y: ((e.clientY - rect.top) * scaleY) / currentZoom
+            };
+        }
+
+        // ==================== 繪圖核心 (含平滑化邏輯) ====================
+        function redrawCanvas() {
+            if(window.pageBgImageData) ctx.putImageData(window.pageBgImageData, 0, 0);
+
+            // 應用縮放
+            ctx.save();
+            ctx.scale(currentZoom, currentZoom);
+
+            canvasObjects.forEach(obj => {
+                ctx.save();
+                ctx.lineCap = 'round'; 
+                ctx.lineJoin = 'round';
+
+                // --- 螢光筆專屬邏輯 (貝茲曲線 + 色彩增值) ---
+                if (obj.type === 'highlighter') {
+                    ctx.strokeStyle = obj.color; 
+                    ctx.lineWidth = 20; // 螢光筆預設寬度
+                    ctx.globalAlpha = 0.4; // 透明度
+                    ctx.globalCompositeOperation = 'multiply'; // 色彩增值
+
+                    if (obj.points.length > 0) {
+                        ctx.beginPath();
+                        ctx.moveTo(obj.points[0].x, obj.points[0].y);
+                        // 使用二次貝茲曲線進行平滑連接
+                        for (let i = 1; i < obj.points.length - 1; i++) {
+                            const midPoint = getMidPoint(obj.points[i], obj.points[i+1]);
+                            ctx.quadraticCurveTo(obj.points[i].x, obj.points[i].y, midPoint.x, midPoint.y);
+                        }
+                        if (obj.points.length > 1) {
+                            const lastPoint = obj.points[obj.points.length - 1];
+                            ctx.lineTo(lastPoint.x, lastPoint.y);
+                        }
+                        ctx.stroke();
+                    }
+                
+                // --- 普通畫筆邏輯 (貝茲曲線平滑) ---
+                } else if (obj.type === 'pen') {
+                    ctx.strokeStyle = obj.color; 
+                    ctx.fillStyle = obj.color;
+                    ctx.lineWidth = obj.width;
+                    
+                    if (obj.points.length > 0) {
+                        ctx.beginPath();
+                        ctx.moveTo(obj.points[0].x, obj.points[0].y);
+                        for (let i = 1; i < obj.points.length - 1; i++) {
+                            const midPoint = getMidPoint(obj.points[i], obj.points[i+1]);
+                            ctx.quadraticCurveTo(obj.points[i].x, obj.points[i].y, midPoint.x, midPoint.y);
+                        }
+                        if (obj.points.length > 1) {
+                            const lastPoint = obj.points[obj.points.length - 1];
+                            ctx.lineTo(lastPoint.x, lastPoint.y);
+                        }
+                        ctx.stroke();
+                    }
+
+                // --- 其他幾何圖形 ---
+                } else if (obj.type === 'text') {
+                    ctx.fillStyle = obj.color;
+                    const m = getTextMetricsForCanvas(ctx, obj);
+                    // 修復:使用物件的 fontFamily 屬性,如果沒有則使用 Arial
+                    const fontFamily = obj.fontFamily || 'Arial';
+                    ctx.font = m.fontSize + "px " + fontFamily;
+                    ctx.textBaseline = "top";
+
+                    const x = obj.x || 0;
+                    const y = obj.y || 0;
+                    for (let i = 0; i < m.lines.length; i++) {
+                        ctx.fillText(m.lines[i], x, y + i * m.lineHeight);
+                    }
+                } else if(obj.type === 'rect') {
+                    ctx.strokeStyle = obj.color; ctx.lineWidth = obj.width;
+                    ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+                } else if(obj.type === 'fillRect') {
+                    ctx.fillStyle = obj.color;
+                    ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                } else if(obj.type === 'circle') {
+                    ctx.strokeStyle = obj.color; ctx.lineWidth = obj.width;
+                    const r = Math.sqrt(Math.pow(obj.w, 2) + Math.pow(obj.h, 2)) / 2;
+                    ctx.beginPath(); ctx.arc(obj.x + obj.w/2, obj.y + obj.h/2, Math.abs(r), 0, 2*Math.PI); ctx.stroke();
+                } else if(obj.type === 'arrow') {
+                    ctx.strokeStyle = obj.color; ctx.lineWidth = obj.width;
+                    drawArrow(ctx, obj.x, obj.y, obj.x+obj.w, obj.y+obj.h);
+                } else if(obj.type === 'image' && obj.imgElement) {
+                    ctx.drawImage(obj.imgElement, obj.x, obj.y, obj.w, obj.h);
+                }
+                ctx.restore();
+            });
+
+            if(selectedObject) drawSelectionBox(selectedObject);
+            
+            ctx.restore(); // 結束縮放
+        }
+
+        function drawSelectionBox(obj) {
+            let x = obj.x, y = obj.y, w = obj.w, h = obj.h;
+            if (obj.type === 'text') {
+                const b = getTextBounds(ctx, obj);
+                x = b.x; y = b.y; w = b.w; h = b.h;
+            } else if(obj.type === 'pen' || obj.type === 'highlighter') {
+                let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+                obj.points.forEach(p=>{ if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y; });
+                x=minX; y=minY; w=maxX-minX; h=maxY-minY;
+            }
+
+            ctx.save(); 
+            ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2 / currentZoom; 
+            ctx.setLineDash([5, 5]);
+            const padding = 5;
+            ctx.strokeRect(x - padding, y - padding, w + padding*2, h + padding*2);
+            
+            // 繪製調整大小的控制點
+            const handleSize = 8 / currentZoom;
+            ctx.fillStyle = '#3b82f6';
+            ctx.setLineDash([]);
+            
+            // 八個控制點: 四角 + 四邊中點
+            const handles = [
+                {x: x - padding, y: y - padding, cursor: 'nw-resize'},  // 左上
+                {x: x + w/2, y: y - padding, cursor: 'n-resize'},       // 上中
+                {x: x + w + padding, y: y - padding, cursor: 'ne-resize'}, // 右上
+                {x: x + w + padding, y: y + h/2, cursor: 'e-resize'},   // 右中
+                {x: x + w + padding, y: y + h + padding, cursor: 'se-resize'}, // 右下
+                {x: x + w/2, y: y + h + padding, cursor: 's-resize'},   // 下中
+                {x: x - padding, y: y + h + padding, cursor: 'sw-resize'}, // 左下
+                {x: x - padding, y: y + h/2, cursor: 'w-resize'}        // 左中
+            ];
+            
+            handles.forEach(handle => {
+                ctx.fillRect(handle.x - handleSize/2, handle.y - handleSize/2, handleSize, handleSize);
+            });
+            
+            ctx.restore();
+            
+            // 保存控制點位置供檢測使用
+            obj._selectionHandles = handles;
+            obj._selectionBounds = {x: x - padding, y: y - padding, w: w + padding*2, h: h + padding*2};
+        }
+
+        function drawArrow(ctx, fromx, fromy, tox, toy) {
+            const headlen = 15;
+            const angle = Math.atan2(toy-fromy, tox-fromx);
+            ctx.beginPath(); ctx.moveTo(fromx, fromy); ctx.lineTo(tox, toy);
+            ctx.lineTo(tox-headlen*Math.cos(angle-Math.PI/6), toy-headlen*Math.sin(angle-Math.PI/6));
+            ctx.moveTo(tox, toy); ctx.lineTo(tox-headlen*Math.cos(angle+Math.PI/6), toy-headlen*Math.sin(angle+Math.PI/6));
+            ctx.stroke();
+        }
+
+        // ==================== 滑鼠事件 ====================
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getCanvasCoords(e);
+            startX = pos.x; startY = pos.y;
+            
+            if(currentTool === 'pan') {
+                isPanning = true; panStartX = e.clientX; panStartY = e.clientY;
+                panScrollLeft = container.scrollLeft; panScrollTop = container.scrollTop;
+                container.style.cursor = 'grabbing'; return;
+            }
+
+            if(currentTool === 'select') {
+                // 檢查是否點擊在調整大小控制點上
+                let resizeHandle = null;
+                if(selectedObject && selectedObject._selectionHandles) {
+                    const handleSize = 8 / currentZoom;
+                    for(let i = 0; i < selectedObject._selectionHandles.length; i++) {
+                        const handle = selectedObject._selectionHandles[i];
+                        if(Math.abs(pos.x - handle.x) < handleSize && Math.abs(pos.y - handle.y) < handleSize) {
+                            resizeHandle = i;
+                            window.isResizing = true;
+                            window.resizeHandleIndex = i;
+                            window.resizeStartX = pos.x;
+                            window.resizeStartY = pos.y;
+                            
+                            // 計算正確的邊界框
+                            let boundsX = selectedObject.x || 0;
+                            let boundsY = selectedObject.y || 0;
+                            let boundsW = selectedObject.w || 0;
+                            let boundsH = selectedObject.h || 0;
+                            
+                            if(selectedObject.type === 'pen' || selectedObject.type === 'highlighter') {
+                                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                                selectedObject.points.forEach(p => {
+                                    if(p.x < minX) minX = p.x;
+                                    if(p.x > maxX) maxX = p.x;
+                                    if(p.y < minY) minY = p.y;
+                                    if(p.y > maxY) maxY = p.y;
+                                });
+                                boundsX = minX;
+                                boundsY = minY;
+                                boundsW = maxX - minX;
+                                boundsH = maxY - minY;
+                            } else if (selectedObject.type === 'text') {
+                                const b = getTextBounds(ctx, selectedObject);
+                                boundsX = b.x;
+                                boundsY = b.y;
+                                boundsW = b.w;
+                                boundsH = b.h;
+                                window.resizeOriginalFontSize = selectedObject.fontSize;
+                            }
+                            
+                            window.resizeStartBounds = {
+                                x: boundsX,
+                                y: boundsY,
+                                w: boundsW || 1,
+                                h: boundsH || 1
+                            };
+                            
+                            // 建立文字 resize anchor 狀態
+                            if (selectedObject && selectedObject.type === 'text') {
+                                const b = getTextBounds(ctx, selectedObject);
+
+                                window.resizeTextStart = {
+                                    x: b.x, y: b.y, w: b.w, h: b.h,
+                                    fontSize: selectedObject.fontSize,
+                                    handleIndex: window.resizeHandleIndex
+                                };
+
+                                let anchorX = b.x, anchorY = b.y;
+                                if (window.resizeHandleIndex === 0) { anchorX = b.x + b.w; anchorY = b.y + b.h; } // TL -> BR
+                                if (window.resizeHandleIndex === 2) { anchorX = b.x;       anchorY = b.y + b.h; } // TR -> BL
+                                if (window.resizeHandleIndex === 4) { anchorX = b.x;       anchorY = b.y; }       // BR -> TL
+                                if (window.resizeHandleIndex === 6) { anchorX = b.x + b.w; anchorY = b.y; }       // BL -> TR
+
+                                if (window.resizeHandleIndex === 1 || window.resizeHandleIndex === 3 ||
+                                    window.resizeHandleIndex === 5 || window.resizeHandleIndex === 7) {
+                                    window.resizeTextAnchor = null; // 邊點不做鎖比例/中心縮放
+                                } else {
+                                    window.resizeTextAnchor = { x: anchorX, y: anchorY };
+                                }
+                            }
+                            
+                            // 保存原始數據以避免累積誤差
+                            if(selectedObject.type === 'pen' || selectedObject.type === 'highlighter') {
+                                window.resizeOriginalPoints = JSON.parse(JSON.stringify(selectedObject.points));
+                            } else if(selectedObject.type === 'text') {
+                                window.resizeOriginalFontSize = selectedObject.fontSize;
+                            }
+                            
+                            return;
+                        }
+                    }
+                }
+                
+                // 如果沒有點擊控制點,則選取物件
+                selectedObject = null;
+                for(let i=canvasObjects.length-1; i>=0; i--) {
+                    if(isHit(canvasObjects[i], pos.x, pos.y)) {
+                        selectedObject = canvasObjects[i]; isDraggingObj = true;
+                        if (selectedObject.type === 'text') {
+                            const b = getTextBounds(ctx, selectedObject);
+                            dragOffsetX = pos.x - b.x;
+                            dragOffsetY = pos.y - b.y;
+                        } else if (selectedObject.type === 'pen' || selectedObject.type === 'highlighter') {
+                            dragOffsetX = pos.x;
+                            dragOffsetY = pos.y;
+                        } else {
+                            dragOffsetX = pos.x - selectedObject.x;
+                            dragOffsetY = pos.y - selectedObject.y;
+                        }
+                        break;
+                    }
+                }
+                redrawCanvas(); return;
+            }
+
+            if(currentTool === 'text') { createTextInput(e.clientX, e.clientY, pos.x, pos.y); return; }
+
+            isDrawing = true; lastX = pos.x; lastY = pos.y;
+            if(currentTool === 'pen' || currentTool === 'highlighter') {
+                canvasObjects.push({ type: currentTool, color: settings.color, width: settings.strokeWidth, points: [{x: pos.x, y: pos.y}] });
+            } else {
+                canvasObjects.push({ type: currentTool, color: settings.color, width: settings.strokeWidth, x: pos.x, y: pos.y, w: 0, h: 0 });
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if(isPanning) { container.scrollLeft = panScrollLeft - (e.clientX - panStartX); container.scrollTop = panScrollTop - (e.clientY - panStartY); return; }
+            const pos = getCanvasCoords(e);
+
+            // 處理調整大小
+            if(window.isResizing && selectedObject) {
+                const dx = pos.x - window.resizeStartX;
+                const dy = pos.y - window.resizeStartY;
+                const handleIndex = window.resizeHandleIndex;
+                const startBounds = window.resizeStartBounds;
+                
+                // 根據控制點位置調整大小
+                let newX = startBounds.x;
+                let newY = startBounds.y;
+                let newW = startBounds.w;
+                let newH = startBounds.h;
+                
+                if(handleIndex === 0) { // 左上
+                    newX = startBounds.x + dx; newY = startBounds.y + dy;
+                    newW = startBounds.w - dx; newH = startBounds.h - dy;
+                } else if(handleIndex === 1) { // 上中
+                    newY = startBounds.y + dy; newH = startBounds.h - dy;
+                } else if(handleIndex === 2) { // 右上
+                    newY = startBounds.y + dy; newW = startBounds.w + dx; newH = startBounds.h - dy;
+                } else if(handleIndex === 3) { // 右中
+                    newW = startBounds.w + dx;
+                } else if(handleIndex === 4) { // 右下
+                    newW = startBounds.w + dx; newH = startBounds.h + dy;
+                } else if(handleIndex === 5) { // 下中
+                    newH = startBounds.h + dy;
+                } else if(handleIndex === 6) { // 左下
+                    newX = startBounds.x + dx; newW = startBounds.w - dx; newH = startBounds.h + dy;
+                } else if(handleIndex === 7) { // 左中
+                    newX = startBounds.x + dx; newW = startBounds.w - dx;
+                }
+                
+                // 防止尺寸為0或負數
+                if(Math.abs(newW) < 5) newW = 5 * Math.sign(newW || 1);
+                if(Math.abs(newH) < 5) newH = 5 * Math.sign(newH || 1);
+                
+                // 應用新的大小
+                if (selectedObject.type === 'text') {
+                    const start = window.resizeTextStart || window.resizeStartBounds;
+                    const anchor = window.resizeTextAnchor;
+                    const mx = pos.x, my = pos.y;
+
+                    // 邊點：沿用通用矩形 resize 的 newX/newY/newW/newH，只推字級
+                    if (!anchor) {
+                        const baseSize = Math.max(6, parseInt(window.resizeOriginalFontSize || selectedObject.fontSize || 12, 10));
+                        const scaleW = Math.abs(newW / Math.max(1, start.w));
+                        const scaleH = Math.abs(newH / Math.max(1, start.h));
+                        const scale = Math.max(scaleW, scaleH);
+
+                        selectedObject.fontSize = Math.max(6, Math.round(baseSize * scale));
+                        selectedObject.x = newX;
+                        selectedObject.y = newY;
+
+                        const b = getTextBounds(ctx, selectedObject);
+                        const m = getTextMetricsForCanvas(ctx, selectedObject);
+                        showResizeHud(`TEXT<br>W: ${Math.round(b.w)} px<br>H: ${Math.round(b.h)} px<br>Font: ${Math.round(m.fontSize)} px<br>Lines: ${m.lines.length}`);
+
+                        redrawCanvas();
+                        return;
+                    }
+
+                    // 角點：固定對角 anchor
+                    let left = Math.min(anchor.x, mx);
+                    let right = Math.max(anchor.x, mx);
+                    let top = Math.min(anchor.y, my);
+                    let bottom = Math.max(anchor.y, my);
+
+                    newX = left;
+                    newY = top;
+                    newW = Math.max(5, right - left);
+                    newH = Math.max(5, bottom - top);
+
+                    const isCornerHandle = (start.handleIndex === 0 || start.handleIndex === 2 || start.handleIndex === 4 || start.handleIndex === 6);
+
+                    // Ctrl：角點鎖比例
+                    if (window.__MOD_KEYS__?.ctrl && isCornerHandle) {
+                        const ratio = start.w / Math.max(1, start.h);
+                        const targetH_byW = newW / Math.max(0.0001, ratio);
+                        const targetW_byH = newH * ratio;
+
+                        if (Math.abs(targetH_byW - newH) < Math.abs(targetW_byH - newW)) {
+                            newH = Math.max(5, targetH_byW);
+                        } else {
+                            newW = Math.max(5, targetW_byH);
+                        }
+
+                        if (mx >= anchor.x) newX = anchor.x; else newX = anchor.x - newW;
+                        if (my >= anchor.y) newY = anchor.y; else newY = anchor.y - newH;
+                    }
+
+                    // Alt：角點中心縮放
+                    if (window.__MOD_KEYS__?.alt && isCornerHandle) {
+                        const cx = start.x + start.w / 2;
+                        const cy = start.y + start.h / 2;
+                        newX = cx - newW / 2;
+                        newY = cy - newH / 2;
+                    }
+
+                    // 推字級
+                    const baseSize = Math.max(6, parseInt(start.fontSize || window.resizeOriginalFontSize || selectedObject.fontSize || 12, 10));
+                    const scaleW = newW / Math.max(1, start.w);
+                    const scaleH = newH / Math.max(1, start.h);
+                    const scale = Math.max(scaleW, scaleH);
+
+                    selectedObject.fontSize = Math.max(6, Math.round(baseSize * scale));
+                    selectedObject.x = newX;
+                    selectedObject.y = newY;
+
+                    const b = getTextBounds(ctx, selectedObject);
+                    const m = getTextMetricsForCanvas(ctx, selectedObject);
+                    showResizeHud(`TEXT<br>W: ${Math.round(b.w)} px<br>H: ${Math.round(b.h)} px<br>Font: ${Math.round(m.fontSize)} px<br>Lines: ${m.lines.length}`);
+
+                    redrawCanvas();
+                    return;
+                } else if(selectedObject.type === 'pen' || selectedObject.type === 'highlighter') {
+                    // 自由繪圖調整所有點
+                    if(startBounds.w !== 0 && startBounds.h !== 0) {
+                        const scaleX = newW / startBounds.w;
+                        const scaleY = newH / startBounds.h;
+                        
+                        // 使用原始點來計算,避免累積誤差
+                        if(!window.resizeOriginalPoints) {
+                            window.resizeOriginalPoints = JSON.parse(JSON.stringify(selectedObject.points));
+                        }
+                        
+                        selectedObject.points = window.resizeOriginalPoints.map(p => ({
+                            x: newX + (p.x - startBounds.x) * scaleX,
+                            y: newY + (p.y - startBounds.y) * scaleY
+                        }));
+                    }
+                } else {
+                    // 其他形狀直接調整
+                    selectedObject.x = newX;
+                    selectedObject.y = newY;
+                    selectedObject.w = newW;
+                    selectedObject.h = newH;
+                }
+                
+                showResizeHud(
+                    `${(selectedObject.type || 'obj').toUpperCase()}<br>` +
+                    `W: ${Math.round(Math.abs(newW || 0))} px<br>` +
+                    `H: ${Math.round(Math.abs(newH || 0))} px`
+                );
+                
+                redrawCanvas(); return;
+            }
+
+            if(isDraggingObj && selectedObject) {
+                if(selectedObject.type === 'pen' || selectedObject.type === 'highlighter') {
+                    const dx = pos.x - dragOffsetX; const dy = pos.y - dragOffsetY;
+                    selectedObject.points.forEach(p => { p.x += dx; p.y += dy; });
+                    selectedObject.x += dx; selectedObject.y += dy; dragOffsetX = pos.x; dragOffsetY = pos.y;
+                } else {
+                    selectedObject.x = pos.x - dragOffsetX; selectedObject.y = pos.y - dragOffsetY;
+                }
+                redrawCanvas(); return;
+            }
+
+            if(!isDrawing) return;
+            const currentObj = canvasObjects[canvasObjects.length-1];
+            
+            if(currentTool === 'pen' || currentTool === 'highlighter') {
+                // 平滑繪製邏輯：必須重繪整個 Canvas 來避免不透明度疊加問題
+                currentObj.points.push({x: pos.x, y: pos.y});
+                redrawCanvas(); 
+                lastX = pos.x; lastY = pos.y;
+            } else {
+                currentObj.w = pos.x - startX; currentObj.h = pos.y - startY; 
+                redrawCanvas();
+            }
+        });
+
+        const stopAction = () => {
+            // 如果有實際的繪圖或編輯動作，保存歷史
+            if (isDrawing || isDraggingObj || window.isResizing) {
+                saveHistory();
+            }
+            
+            isDrawing = false; 
+            isDraggingObj = false; 
+            isPanning = false; 
+            window.isResizing = false;
+            // 清除調整大小時的臨時數據
+            window.resizeOriginalPoints = null;
+            window.resizeOriginalFontSize = null;
+            window.resizeTextStart = null;
+            window.resizeTextAnchor = null;
+            hideResizeHud();
+            container.style.cursor = currentTool==='pan'?'grab':(currentTool==='select'?'default':'crosshair'); 
+        };
+        window.addEventListener('mouseup', stopAction);
+
+        function isHit(obj, mouseX, mouseY) {
+            const padding = 10;
+            let rx = obj.x, ry = obj.y, rw = obj.w, rh = obj.h;
+            if(rw < 0) { rx += rw; rw = Math.abs(rw); } if(rh < 0) { ry += rh; rh = Math.abs(rh); }
+            
+            if (obj.type === 'text') {
+                const b = getTextBounds(ctx, obj);
+                rx = b.x; ry = b.y; rw = b.w; rh = b.h;
+            } else if(obj.type === 'pen' || obj.type === 'highlighter') {
+               let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+               obj.points.forEach(p=>{ if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y; });
+               rx=minX; ry=minY; rw=maxX-minX; rh=maxY-minY;
+            }
+
+            return mouseX >= rx - padding && mouseX <= rx + rw + padding && mouseY >= ry - padding && mouseY <= ry + rh + padding;
+        }
+
+        // ==================== 其他輔助功能 (文字、圖片、工具箱) ====================
+        
+        document.getElementById('editor-color').addEventListener('input', (e) => settings.color = e.target.value);
+        document.getElementById('stroke-width').addEventListener('input', (e) => {
+            settings.strokeWidth = parseInt(e.target.value);
+            document.getElementById('stroke-display').textContent = settings.strokeWidth;
+        });
+        document.getElementById('font-size').addEventListener('input', (e) => {
+            settings.fontSize = parseInt(e.target.value);
+            document.getElementById('font-display').textContent = settings.fontSize;
+        });
+
+        function createTextInput(screenX, screenY, canvasX, canvasY) {
+            const div = document.createElement('div'); div.className = 'dynamic-textarea';
+            div.contentEditable = true; div.style.left = screenX + 'px'; div.style.top = screenY + 'px';
+            div.style.fontSize = (settings.fontSize * currentZoom) + 'px';
+            div.style.color = settings.color; div.style.borderColor = settings.color;
+            document.body.appendChild(div); setTimeout(() => div.focus(), 0);
+            
+            const finish = () => {
+                if(div.innerText.trim()) {
+                    canvasObjects.push({ type: 'text', content: div.innerText, x: canvasX, y: canvasY, fontSize: settings.fontSize, color: settings.color, w:0, h:0 });
+                    redrawCanvas();
+                    saveHistory(); // 保存歷史記錄
+                }
+                div.remove();
+            };
+            div.addEventListener('blur', finish);
+            div.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    div.blur();
+                    return;
+                }
+                if (e.key === 'Enter' && e.shiftKey) {
+                    e.preventDefault();
+                    document.execCommand('insertText', false, '\n');
+                }
+            });
+        }
+
+        function handleImageUpload(input) {
+            const file = input.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const w = 200; const h = 200 * (img.height/img.width);
+                    canvasObjects.push({ type: 'image', imgElement: img, src: e.target.result, x: 50, y: 50, w: w, h: h });
+                    redrawCanvas(); 
+                    saveHistory(); // 保存歷史記錄
+                    setTool('select'); 
+                    input.value = '';
+                }; img.src = e.target.result;
+            }; reader.readAsDataURL(file);
+        }
+        
+        async function restoreImages(objs) {
+            for(let obj of objs) { if(obj.type === 'image' && obj.src && !obj.imgElement) { await new Promise(r => { const img = new Image(); img.onload = () => { obj.imgElement = img; r(); }; img.src = obj.src; }); }}
+        }
+        function deleteSelected() { 
+            if(selectedObject) { 
+                canvasObjects.splice(canvasObjects.indexOf(selectedObject), 1); 
+                selectedObject = null; 
+                redrawCanvas(); 
+                saveHistory(); // 保存歷史記錄
+            } 
+        }
+        function prevPage() { if(currentPage>1) renderPage(currentPage-1); }
+        function nextPage() { if(currentPage<totalPages) renderPage(currentPage+1); }
+        // Download 輔助函數
+        function download(data, filename, mimeType) {
+            const blob = new Blob([data], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        async function savePdf(event) {
+            if (!pdfFile) return alert('請先載入 PDF');
+
+            const exportBtn = event?.currentTarget;
+            if (!exportBtn) return alert('匯出按鈕事件不存在（請把 onclick 改成 savePdf(event)）');
+
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = '<span class="spinner"></span> 匯出中...';
+            exportBtn.disabled = true;
+
+            try {
+                // 先把目前頁的編輯記錄回 allPageEdits
+                if (currentPage && canvasObjects && canvasObjects.length > 0) {
+                    allPageEdits[currentPage] = JSON.parse(JSON.stringify(canvasObjects));
+                }
+
+                const existingPdfBytes = await pdfFile.arrayBuffer();
+                const outDoc = await PDFDocument.load(existingPdfBytes);
+                const font = await outDoc.embedFont(StandardFonts.Helvetica);
+                const pages = outDoc.getPages();
+
+                for (let pageNum = 1; pageNum <= pages.length; pageNum++) {
+                    const page = pages[pageNum - 1];
+                    const objs = allPageEdits[pageNum];
+                    if (!objs || objs.length === 0) continue;
+
+                    const { width: pw, height: ph } = page.getSize();
+
+                    for (const obj of objs) {
+                        if (!obj) continue;
+
+                        // ---------- TEXT (selectable, searchable, supports \n) ----------
+                        if (obj.type === 'text') {
+                            const color = hexToRgb01(obj.color || '#000000');
+                            const size = Math.max(6, parseInt(obj.fontSize || 12, 10));
+
+                            const x = Math.max(0, Math.min(pw, obj.x || 0));
+                            const yTop = Math.max(0, Math.min(ph, obj.y || 0));
+
+                            let text = normalizeNewlines(obj.content);
+                            if (!text.trim()) continue;
+
+                            const lineHeight = size * 1.25;
+
+                            // y 轉換：Canvas top-left -> PDF bottom-left
+                            const y = ph - yTop - size;
+
+                            page.drawText(text, {
+                                x,
+                                y,
+                                size,
+                                font,
+                                color: rgb(color.r, color.g, color.b),
+                                lineHeight,
+                            });
+                        }
+
+                        // ---------- RECT / FILL RECT ----------
+                        else if (obj.type === 'rect' || obj.type === 'fillRect') {
+                            const color = hexToRgb01(obj.color || '#ff0000');
+                            const x0 = obj.x || 0, y0 = obj.y || 0, w = obj.w || 0, h = obj.h || 0;
+
+                            const x = Math.max(0, Math.min(pw, Math.min(x0, x0 + w)));
+                            const yTop = Math.max(0, Math.min(ph, Math.min(y0, y0 + h)));
+                            const rw = Math.min(Math.abs(w), pw);
+                            const rh = Math.min(Math.abs(h), ph);
+                            const y = ph - yTop - rh;
+
+                            if (obj.type === 'fillRect') {
+                                page.drawRectangle({
+                                    x, y, width: rw, height: rh,
+                                    color: rgb(color.r, color.g, color.b)
+                                });
+                            } else {
+                                page.drawRectangle({
+                                    x, y, width: rw, height: rh,
+                                    borderWidth: Math.max(0.5, (obj.width || 2)),
+                                    borderColor: rgb(color.r, color.g, color.b),
+                                });
+                            }
+                        }
+
+                        // ---------- ARROW ----------
+                        else if (obj.type === 'arrow') {
+                            const color = hexToRgb01(obj.color || '#ff0000');
+
+                            const x1 = Math.max(0, Math.min(pw, obj.x || 0));
+                            const y1Top = Math.max(0, Math.min(ph, obj.y || 0));
+                            const x2 = Math.max(0, Math.min(pw, (obj.x || 0) + (obj.w || 0)));
+                            const y2Top = Math.max(0, Math.min(ph, (obj.y || 0) + (obj.h || 0)));
+
+                            const y1 = ph - y1Top;
+                            const y2 = ph - y2Top;
+
+                            const thickness = Math.max(0.5, (obj.width || 2));
+
+                            page.drawLine({
+                                start: { x: x1, y: y1 },
+                                end: { x: x2, y: y2 },
+                                thickness,
+                                color: rgb(color.r, color.g, color.b)
+                            });
+
+                            const headLen = 12 + thickness * 1.5;
+                            const angle = Math.atan2(y2 - y1, x2 - x1);
+                            const a1 = angle + Math.PI * 5 / 6;
+                            const a2 = angle - Math.PI * 5 / 6;
+
+                            page.drawLine({
+                                start: { x: x2, y: y2 },
+                                end: { x: x2 + headLen * Math.cos(a1), y: y2 + headLen * Math.sin(a1) },
+                                thickness,
+                                color: rgb(color.r, color.g, color.b)
+                            });
+                            page.drawLine({
+                                start: { x: x2, y: y2 },
+                                end: { x: x2 + headLen * Math.cos(a2), y: y2 + headLen * Math.sin(a2) },
+                                thickness,
+                                color: rgb(color.r, color.g, color.b)
+                            });
+                        }
+
+                        // ---------- PEN / HIGHLIGHTER ----------
+                        else if (obj.type === 'pen' || obj.type === 'highlighter') {
+                            if (!obj.points || obj.points.length < 2) continue;
+
+                            const color = hexToRgb01(obj.color || '#ff0000');
+                            const thickness = obj.type === 'highlighter' ? 12 : Math.max(0.5, (obj.width || 2));
+                            const opacity = obj.type === 'highlighter' ? 0.35 : 1;
+
+                            for (let i = 1; i < obj.points.length; i++) {
+                                const p0 = obj.points[i - 1];
+                                const p1 = obj.points[i];
+
+                                const xA = Math.max(0, Math.min(pw, p0.x));
+                                const yATop = Math.max(0, Math.min(ph, p0.y));
+                                const xB = Math.max(0, Math.min(pw, p1.x));
+                                const yBTop = Math.max(0, Math.min(ph, p1.y));
+
+                                page.drawLine({
+                                    start: { x: xA, y: ph - yATop },
+                                    end: { x: xB, y: ph - yBTop },
+                                    thickness,
+                                    color: rgb(color.r, color.g, color.b),
+                                    opacity,
+                                });
+                            }
+                        }
+
+                        // ---------- IMAGE ----------
+                        else if (obj.type === 'image') {
+                            const x0 = obj.x || 0, y0 = obj.y || 0, w = obj.w || 0, h = obj.h || 0;
+
+                            const x = Math.max(0, Math.min(pw, Math.min(x0, x0 + w)));
+                            const yTop = Math.max(0, Math.min(ph, Math.min(y0, y0 + h)));
+                            const rw = Math.min(Math.abs(w), pw);
+                            const rh = Math.min(Math.abs(h), ph);
+                            const y = ph - yTop - rh;
+
+                            let bytes = null;
+                            let isPng = true;
+
+                            const src = obj.src || (obj.imgElement && obj.imgElement.src);
+                            if (src && typeof src === 'string' && src.startsWith('data:')) {
+                                const m = src.match(/^data:([^;]+);base64,(.*)$/);
+                                if (m) {
+                                    isPng = (m[1] === 'image/png');
+                                    bytes = Uint8Array.from(atob(m[2]), c => c.charCodeAt(0));
+                                }
+                            }
+                            if (!bytes) continue;
+
+                            const embedded = isPng ? await outDoc.embedPng(bytes) : await outDoc.embedJpg(bytes);
+                            page.drawImage(embedded, { x, y, width: rw, height: rh });
+                        }
+
+                        // ---------- CIRCLE (stroke only; approximate) ----------
+                        else if (obj.type === 'circle') {
+                            const color = hexToRgb01(obj.color || '#ff0000');
+                            const x0 = obj.x || 0, y0 = obj.y || 0, w = obj.w || 0, h = obj.h || 0;
+
+                            const cx = Math.max(0, Math.min(pw, x0 + w / 2));
+                            const cyTop = Math.max(0, Math.min(ph, y0 + h / 2));
+                            const cy = ph - cyTop;
+
+                            const r = Math.max(1, Math.sqrt(w * w + h * h) / 2);
+                            const k = 0.5522847498;
+                            const ox = r * k;
+                            const oy = r * k;
+
+                            const path = `
+                                M ${cx - r} ${cy}
+                                C ${cx - r} ${cy + oy} ${cx - ox} ${cy + r} ${cx} ${cy + r}
+                                C ${cx + ox} ${cy + r} ${cx + r} ${cy + oy} ${cx + r} ${cy}
+                                C ${cx + r} ${cy - oy} ${cx + ox} ${cy - r} ${cx} ${cy - r}
+                                C ${cx - ox} ${cy - r} ${cx - r} ${cy - oy} ${cx - r} ${cy}
+                                Z
+                            `.trim();
+
+                            page.drawSvgPath(path, {
+                                borderColor: rgb(color.r, color.g, color.b),
+                                borderWidth: Math.max(0.5, (obj.width || 2)),
+                            });
+                        }
+                    }
+                }
+
+                const pdfBytes = await outDoc.save();
+                download(pdfBytes, 'annotated.pdf', 'application/pdf');
+                alert('PDF 已匯出（文字可選取/可搜尋、保留換行）');
+            } catch (error) {
+                alert(error?.message || String(error));
+                console.error(error);
+            } finally {
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            }
+        }
+
+        function toggleRightPanel() { document.getElementById('right-panel').classList.toggle('collapsed'); }
+        function switchTab(el, id) {
+            document.querySelectorAll('.tool-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tool-content').forEach(c => c.classList.remove('active'));
+            el.classList.add('active'); document.getElementById(id).classList.add('active');
+        }
+        function setLoading(id, isLoading, text) { 
+            const b = document.getElementById(id); if(b) { b.disabled = isLoading; b.innerHTML = isLoading ? '<span class="spinner"></span> 處理中' : text; }
+        }
+
+        async function previewPages(input, gridId) {
+            const grid = document.getElementById(gridId); 
+            grid.innerHTML = '';
+            if(!input.files[0]) return;
+            try {
+                // 根據功能選擇合適的PDF載入方式
+                let pageCount;
+                
+                if(gridId === 'extract-grid') {
+                    // 提取文字功能使用 pdf.js
+                    const loadingTask = pdfjsLib.getDocument(await input.files[0].arrayBuffer());
+                    const pdf = await loadingTask.promise;
+                    pageCount = pdf.numPages;
+                } else {
+                    // 其他功能使用 pdf-lib
+                    const doc = await PDFDocument.load(await input.files[0].arrayBuffer());
+                    pageCount = doc.getPageCount();
+                }
+                
+                for(let i=0; i<pageCount; i++) {
+                    const div = document.createElement('div'); 
+                    div.className = 'page-item';
+                    div.innerText = i+1; 
+                    div.onclick = function() {
+                        if(gridId === 'split-grid' && document.querySelector('input[name="split-mode"]:checked').value === 'point') {
+                            this.classList.toggle('split-point');
+                        } else {
+                            this.classList.toggle('selected');
+                        }
+                    }; 
+                    grid.appendChild(div);
+                }
+            } catch(e) { 
+                alert('預覽失敗: '+e.message); 
+                console.error('Preview error:', e);
+            }
+        }
+
+        // ==================== 右側工具箱功能 ====================
+        // 1. 合併
+        let mergeFiles = [];
+        
+        function handleMergeFiles(input) {
+            const files = Array.from(input.files);
+            if (files.length === 0) return;
+            
+            // 使用自然排序
+            const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+            files.sort((a, b) => collator.compare(a.name, b.name));
+            
+            mergeFiles = files;
+            renderMergeList();
+            
+            document.getElementById('merge-list-container').classList.remove('hidden');
+            input.value = '';
+        }
+        
+        function renderMergeList() {
+            const list = document.getElementById('merge-list');
+            const count = document.getElementById('merge-count');
+            
+            list.innerHTML = '';
+            count.textContent = `${mergeFiles.length} 個檔案`;
+            
+            mergeFiles.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'merge-file-item';
+                
+                // 檔名顯示
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'merge-card-name';
+                nameDiv.innerHTML = `
+                    <div class="number">${index + 1}</div>
+                    <div class="name" title="${file.name}">📄 ${file.name}</div>
+                `;
+                
+                // 控制按鈕
+                const controls = document.createElement('div');
+                controls.className = 'merge-card-controls';
+                
+                const btnUp = document.createElement('button');
+                btnUp.className = 'merge-card-btn';
+                btnUp.innerHTML = '▲ 上移';
+                btnUp.onclick = () => moveMergeFileUp(index);
+                if (index === 0) btnUp.disabled = true;
+                
+                const btnDown = document.createElement('button');
+                btnDown.className = 'merge-card-btn';
+                btnDown.innerHTML = '▼ 下移';
+                btnDown.onclick = () => moveMergeFileDown(index);
+                if (index === mergeFiles.length - 1) btnDown.disabled = true;
+                
+                const btnDel = document.createElement('button');
+                btnDel.className = 'merge-card-btn delete';
+                btnDel.innerHTML = '🗑️ 刪除';
+                btnDel.onclick = () => deleteMergeFile(index);
+                
+                controls.appendChild(btnUp);
+                controls.appendChild(btnDown);
+                controls.appendChild(btnDel);
+                
+                item.appendChild(nameDiv);
+                item.appendChild(controls);
+                list.appendChild(item);
+            });
+        }
+        
+        function moveMergeFileUp(index) {
+            if (index === 0) return;
+            [mergeFiles[index], mergeFiles[index - 1]] = [mergeFiles[index - 1], mergeFiles[index]];
+            renderMergeList();
+        }
+        
+        function moveMergeFileDown(index) {
+            if (index === mergeFiles.length - 1) return;
+            [mergeFiles[index], mergeFiles[index + 1]] = [mergeFiles[index + 1], mergeFiles[index]];
+            renderMergeList();
+        }
+        
+        function deleteMergeFile(index) {
+            mergeFiles.splice(index, 1);
+            if (mergeFiles.length === 0) {
+                document.getElementById('merge-list-container').classList.add('hidden');
+            }
+            renderMergeList();
+        }
+        
+        function clearMergeList() {
+            mergeFiles = [];
+            document.getElementById('merge-list-container').classList.add('hidden');
+        }
+        
+        async function runMerge() {
+            if(mergeFiles.length < 2) return alert('請至少選擇 2 個檔案');
+            setLoading('btn-merge', true);
+            try {
+                const doc = await PDFDocument.create();
+                for(let f of mergeFiles) {
+                    const d = await PDFDocument.load(await f.arrayBuffer());
+                    (await doc.copyPages(d, d.getPageIndices())).forEach(p=>doc.addPage(p));
+                }
+                download(await doc.save(), "merged.pdf", "application/pdf");
+            } catch(e) { alert(e.message); }
+            setLoading('btn-merge', false, '🔗 開始合併');
+        }
+
+        // 2. 切分
+        function toggleSplitMode() {
+            const mode = document.querySelector('input[name="split-mode"]:checked').value;
+            const btn = document.getElementById('btn-split');
+            document.querySelectorAll('#split-grid .page-item').forEach(el => el.className = 'page-item'); // reset
+            btn.innerText = mode === 'point' ? "✂️ 執行切分 (Zip)" : "📑 提取頁面 (PDF)";
+        }
+        
+        // 切換切分頁碼選擇模式
+        function toggleSplitPageMode() {
+            const mode = document.querySelector('input[name="split-page-mode"]:checked').value;
+            const visualMode = document.getElementById('split-visual-mode');
+            const rangeMode = document.getElementById('split-range-mode');
+            
+            if (mode === 'visual') {
+                visualMode.classList.remove('hidden');
+                rangeMode.classList.add('hidden');
+            } else {
+                visualMode.classList.add('hidden');
+                rangeMode.classList.remove('hidden');
+            }
+        }
+        
+        async function runSplit() {
+            const input = document.getElementById('split-file');
+            if(!input.files[0]) return alert('請選擇檔案');
+            setLoading('btn-split', true);
+            try {
+                const doc = await PDFDocument.load(await input.files[0].arrayBuffer());
+                const mode = document.querySelector('input[name="split-mode"]:checked').value;
+                const pageMode = document.querySelector('input[name="split-page-mode"]:checked').value;
+                
+                if(mode === 'point') {
+                    // 切分點模式 (Zip)
+                    let points;
+                    if (pageMode === 'range') {
+                        // 範圍輸入模式：使用起始頁作為切分點
+                        const startPage = parseInt(document.getElementById('split-start-page').value) || 1;
+                        const endPage = parseInt(document.getElementById('split-end-page').value) || doc.getPageCount();
+                        
+                        // 驗證頁碼範圍
+                        if (startPage < 1 || startPage > doc.getPageCount()) {
+                            throw new Error(`起始頁碼必須在 1 到 ${doc.getPageCount()} 之間`);
+                        }
+                        if (endPage < startPage || endPage > doc.getPageCount()) {
+                            throw new Error(`結束頁碼必須在 ${startPage} 到 ${doc.getPageCount()} 之間`);
+                        }
+                        
+                        // 將起始頁(從0開始的索引)作為切分點
+                        points = startPage > 1 ? [startPage - 1] : [];
+                    } else {
+                        // 視覺選擇模式
+                        const items = Array.from(document.getElementById('split-grid').children);
+                        points = items.map((el,i)=>el.classList.contains('split-point')?i:null).filter(x=>x!==null);
+                    }
+                    
+                    if(!points.length) throw new Error('請設定切分點或輸入頁數範圍');
+                    const zip = new JSZip(); points.push(doc.getPageCount());
+                    let start = 0;
+                    for(let i=0; i<points.length; i++) {
+                        const newDoc = await PDFDocument.create();
+                        const indices = Array.from({length: points[i]-start}, (_,j)=>start+j);
+                        (await newDoc.copyPages(doc, indices)).forEach(p=>newDoc.addPage(p));
+                        zip.file(`part_${i+1}.pdf`, await newDoc.save()); start = points[i];
+                    }
+                    download(await zip.generateAsync({type:"blob"}), "split.zip", "application/zip");
+                } else {
+                    // 選取模式 (PDF)
+                    let selected;
+                    if (pageMode === 'range') {
+                        // 範圍輸入模式
+                        const startPage = parseInt(document.getElementById('split-start-page').value) || 1;
+                        const endPage = parseInt(document.getElementById('split-end-page').value) || doc.getPageCount();
+                        
+                        // 驗證頁碼範圍
+                        if (startPage < 1 || startPage > doc.getPageCount()) {
+                            throw new Error(`起始頁碼必須在 1 到 ${doc.getPageCount()} 之間`);
+                        }
+                        if (endPage < startPage || endPage > doc.getPageCount()) {
+                            throw new Error(`結束頁碼必須在 ${startPage} 到 ${doc.getPageCount()} 之間`);
+                        }
+                        
+                        // 生成頁面索引數組 (從0開始)
+                        selected = Array.from({length: endPage - startPage + 1}, (_, i) => startPage - 1 + i);
+                    } else {
+                        // 視覺選擇模式
+                        const items = Array.from(document.getElementById('split-grid').children);
+                        selected = items.map((el,i)=>el.classList.contains('selected')?i:null).filter(x=>x!==null);
+                    }
+                    
+                    if(!selected.length) throw new Error('請選擇頁面或輸入頁數範圍');
+                    const newDoc = await PDFDocument.create();
+                    (await newDoc.copyPages(doc, selected)).forEach(p=>newDoc.addPage(p));
+                    download(await newDoc.save(), "extracted.pdf", "application/pdf");
+                }
+            } catch(e) { alert(e.message); }
+            setLoading('btn-split', false, '執行處理');
+        }
+
+        // 3. 提取文字 (優化版 - 智能模式切換)
+        
+        // 提取模式切換提示
+        function updateExtractModeHint() {
+            const mode = document.getElementById('extract-mode').value;
+            const hints = {
+                'auto': '💡 自動模式會智能檢測文檔結構並選擇最佳方式',
+                'table': '📊 表格模式使用Tab分隔列,適合直接貼入Excel',
+                'paragraph': '📄 段落模式保留文本流暢性,適合閱讀和編輯'
+            };
+            const hintEl = document.getElementById('extract-mode-hint');
+            if (hintEl) hintEl.textContent = hints[mode] || '';
+        }
+        
+        // 切換頁碼選擇模式
+        function toggleExtractPageMode() {
+            const mode = document.querySelector('input[name="extract-page-mode"]:checked').value;
+            const visualMode = document.getElementById('extract-visual-mode');
+            const rangeMode = document.getElementById('extract-range-mode');
+            
+            if (mode === 'visual') {
+                visualMode.classList.remove('hidden');
+                rangeMode.classList.add('hidden');
+            } else {
+                visualMode.classList.add('hidden');
+                rangeMode.classList.remove('hidden');
+            }
+        }
+        
+        async function runExtractText() {
+            const file = document.getElementById('text-file').files[0];
+            if(!file) return alert('請選擇檔案');
+            
+            const extractMode = document.getElementById('extract-mode').value;
+            
+            setLoading('btn-text', true);
+            document.getElementById('extract-progress').classList.remove('hidden');
+            document.getElementById('extract-result-container').classList.add('hidden');
+            
+            try {
+                const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
+                let fullText = "";
+                let actualMode = extractMode;
+                
+                // 檢查使用哪種頁碼選擇模式
+                const pageMode = document.querySelector('input[name="extract-page-mode"]:checked').value;
+                let targetPages;
+                
+                if (pageMode === 'range') {
+                    // 範圍輸入模式
+                    const startPage = parseInt(document.getElementById('extract-start-page').value) || 1;
+                    const endPage = parseInt(document.getElementById('extract-end-page').value) || pdf.numPages;
+                    
+                    // 驗證頁碼範圍
+                    if (startPage < 1 || startPage > pdf.numPages) {
+                        throw new Error(`起始頁碼必須在 1 到 ${pdf.numPages} 之間`);
+                    }
+                    if (endPage < startPage || endPage > pdf.numPages) {
+                        throw new Error(`結束頁碼必須在 ${startPage} 到 ${pdf.numPages} 之間`);
+                    }
+                    
+                    targetPages = Array.from({length: endPage - startPage + 1}, (_, i) => startPage + i);
+                } else {
+                    // 視覺選擇模式
+                    const items = document.getElementById('extract-grid').children;
+                    const selected = items.length > 0 ? Array.from(items).map((el,i)=>el.classList.contains('selected')?i+1:null).filter(x=>x) : [];
+                    targetPages = selected.length ? selected : Array.from({length:pdf.numPages}, (_,i)=>i+1);
+                }
+
+                for(let i = 0; i < targetPages.length; i++) {
+                    const pageNum = targetPages[i];
+                    const page = await pdf.getPage(pageNum);
+                    const content = await page.getTextContent();
+                    
+                    // 除錯: 檢查提取到的項目數量
+                    console.log(`第 ${pageNum} 頁提取到 ${content.items.length} 個文字項目`);
+                    
+                    // 更新進度
+                    const progress = Math.round((i + 1) / targetPages.length * 100);
+                    document.getElementById('extract-bar').style.width = progress + '%';
+                    
+                    // 頁碼標記
+                    fullText += `\n${'='.repeat(50)}\n`;
+                    fullText += `📄 第 ${pageNum} 頁\n`;
+                    fullText += `${'='.repeat(50)}\n\n`;
+                    
+                    // 根據模式提取
+                    let pageText = '';
+                    if (extractMode === 'auto') {
+                        // 自動檢測
+                        const detectedMode = detectDocumentType(content);
+                        actualMode = detectedMode;
+                        pageText = extractByMode(content, detectedMode);
+                    } else {
+                        pageText = extractByMode(content, extractMode);
+                    }
+                    
+                    // 除錯: 檢查提取的文字長度
+                    console.log(`第 ${pageNum} 頁提取的文字長度: ${pageText.length} 字元`);
+                    
+                    fullText += pageText + '\n\n';
+                }
+                
+                // 顯示結果
+                const textarea = document.getElementById('text-result');
+                textarea.value = fullText.trim();
+                
+                // 統計資訊
+                const charCount = fullText.trim().replace(/\s/g, '').length;
+                const wordCount = fullText.trim().split(/\s+/).length;
+                
+                // 檢測是否為掃描版PDF (提取到的有效文字很少)
+                const actualTextLength = fullText.replace(/[=\n\s📄第頁]/g, '').length;
+                const isScannedPDF = actualTextLength < 50 && targetPages.length > 0;
+                
+                if (isScannedPDF) {
+                    textarea.value = '⚠️ 偵測到這可能是掃描版PDF（圖片格式）\n\n' +
+                        '掃描版PDF的文字是以圖片形式儲存，無法直接提取。\n\n' +
+                        '建議解決方案：\n' +
+                        '1. 使用具有OCR功能的工具（如Adobe Acrobat）\n' +
+                        '2. 使用線上OCR服務\n' +
+                        '3. 詢問文件提供者是否有文字版本\n\n' +
+                        '---原始提取結果---\n' + fullText.trim();
+                }
+                
+                document.getElementById('extract-stats').textContent = 
+                    isScannedPDF ? '⚠️ 掃描版PDF' : `共 ${charCount.toLocaleString()} 字 / ${wordCount.toLocaleString()} 詞`;
+                document.getElementById('extract-pages-info').textContent = 
+                    `已提取 ${targetPages.length} 頁`;
+                
+                // 顯示使用的模式
+                const modeNames = { 'auto': '智能', 'table': '表格', 'paragraph': '段落' };
+                const usedModeText = extractMode === 'auto' ? 
+                    `使用: ${modeNames[actualMode]}模式` : 
+                    `模式: ${modeNames[extractMode]}`;
+                document.getElementById('extract-mode-used').textContent = usedModeText;
+                
+                document.getElementById('extract-result-container').classList.remove('hidden');
+                
+            } catch(e) { 
+                alert('提取失敗: ' + e.message); 
+            }
+            
+            document.getElementById('extract-progress').classList.add('hidden');
+            setLoading('btn-text', false, '📝 開始提取');
+        }
+        
+        // 智能檢測文檔類型
+        function detectDocumentType(content) {
+            const items = content.items;
+            
+            // 檢測是否為表格(基於X座標分布)
+            const xPositions = items.map(item => Math.round(item.transform[4]));
+            const uniqueX = [...new Set(xPositions)];
+            
+            // 如果有3個以上的垂直對齊列,判斷為表格
+            if (uniqueX.length >= 3 && uniqueX.length <= 10) {
+                const columnCounts = uniqueX.map(x => 
+                    xPositions.filter(pos => Math.abs(pos - x) < 5).length
+                );
+                const avgItemsPerColumn = columnCounts.reduce((a, b) => a + b, 0) / uniqueX.length;
+                
+                if (avgItemsPerColumn > 3) {
+                    return 'table';
+                }
+            }
+            
+            // 默認使用段落模式
+            return 'paragraph';
+        }
+        
+        // 根據模式提取文字
+        function extractByMode(content, mode) {
+            const items = content.items;
+            
+            switch (mode) {
+                case 'table':
+                    return extractAsTable(items);
+                case 'paragraph':
+                    return extractAsParagraph(items);
+                default:
+                    return extractAsParagraph(items);
+            }
+        }
+        
+        // 表格提取模式 - TSV格式
+        function extractAsTable(items) {
+            const textItems = items.map(item => ({
+                text: item.str.trim(),
+                x: Math.round(item.transform[4]),
+                y: Math.round(item.transform[5]),
+                height: item.height
+            })).filter(item => item.text);
+
+            // 按Y座標分組成行
+            const rowMap = new Map();
+            textItems.forEach(item => {
+                const rowKey = Math.round(item.y / 5) * 5; // 5px容差
+                if (!rowMap.has(rowKey)) {
+                    rowMap.set(rowKey, []);
+                }
+                rowMap.get(rowKey).push(item);
+            });
+
+            // 排序行並提取
+            const rows = Array.from(rowMap.entries())
+                .sort((a, b) => b[0] - a[0])
+                .map(([_, items]) => items.sort((a, b) => a.x - b.x));
+
+            // 轉換為TSV
+            return rows.map(row => 
+                row.map(item => item.text).join('\t')
+            ).join('\n');
+        }
+        
+        // 段落提取模式
+        function extractAsParagraph(items) {
+            const textItems = items.map(item => ({
+                text: item.str,
+                x: item.transform[4],
+                y: item.transform[5],
+                height: item.height
+            }));
+
+            // 按Y座標分組
+            const lines = [];
+            let currentLine = [];
+            let lastY = -1;
+            const threshold = 5;
+
+            textItems.sort((a, b) => b.y - a.y || a.x - b.x).forEach(item => {
+                if (lastY === -1 || Math.abs(item.y - lastY) < threshold) {
+                    currentLine.push(item);
+                } else {
+                    if (currentLine.length > 0) {
+                        lines.push(currentLine.sort((a, b) => a.x - b.x));
+                    }
+                    currentLine = [item];
+                }
+                lastY = item.y;
+            });
+
+            if (currentLine.length > 0) {
+                lines.push(currentLine.sort((a, b) => a.x - b.x));
+            }
+
+            // 智能空格處理
+            return lines.map(line => {
+                let lineText = '';
+                for (let i = 0; i < line.length; i++) {
+                    const current = line[i].text;
+                    lineText += current;
+                    
+                    // 根據語言和間距決定是否添加空格
+                    if (i < line.length - 1) {
+                        const next = line[i + 1].text;
+                        const gap = line[i + 1].x - (line[i].x + current.length * 6);
+                        
+                        // 英文單詞之間需要空格
+                        if (/[a-zA-Z]$/.test(current) && /^[a-zA-Z]/.test(next)) {
+                            lineText += ' ';
+                        }
+                        // 大間距也添加空格
+                        else if (gap > 15) {
+                            lineText += ' ';
+                        }
+                    }
+                }
+                return lineText;
+            }).join('\n');
+        }
+        
+        // 複製提取的文字
+        function copyExtractedText() {
+            const textarea = document.getElementById('text-result');
+            if(!textarea.value) return alert('沒有文字可複製');
+            
+            textarea.select();
+            document.execCommand('copy');
+            
+            // 視覺反饋
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '✅ 已複製!';
+            btn.style.background = '#10b981';
+            
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.background = '';
+            }, 2000);
+        }
+        
+        // 下載提取的文字
+        function downloadExtractedText() {
+            const text = document.getElementById('text-result').value;
+            if(!text) return alert('沒有文字可下載');
+            
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const filename = 'extracted_text_' + new Date().getTime() + '.txt';
+            download(blob, filename, 'text/plain');
+        }
+
+        // 4. 壓縮 PDF
+        function updateCompressHint() {
+            const level = document.getElementById('compress-level').value;
+            const hints = {
+                'low': '🎨 低壓縮: 保持最佳品質，檔案大小減少約 10-20%',
+                'medium': '⚖️ 平衡模式: 在保持可讀性的同時有效減少檔案大小',
+                'high': '📦 高壓縮: 最大程度縮小檔案，適合儲存或快速傳輸'
+            };
+            const hintEl = document.getElementById('compress-hint');
+            if (hintEl) hintEl.textContent = hints[level] || '';
+        }
+        
+        async function runCompress() {
+            const file = document.getElementById('compress-file').files[0];
+            if(!file) return alert('請選擇PDF檔案');
+            
+            const level = document.getElementById('compress-level').value;
+            const compressImages = document.getElementById('compress-images').checked;
+            const removeMetadata = document.getElementById('remove-metadata').checked;
+            
+            setLoading('btn-compress', true);
+            document.getElementById('compress-progress').classList.remove('hidden');
+            document.getElementById('compress-result').classList.add('hidden');
+            
+            try {
+                // 更新進度
+                document.getElementById('compress-bar').style.width = '30%';
+                document.getElementById('compress-progress-text').textContent = '30%';
+                
+                const originalSize = file.size;
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfDoc = await PDFDocument.load(arrayBuffer);
+                
+                // 更新進度
+                document.getElementById('compress-bar').style.width = '50%';
+                document.getElementById('compress-progress-text').textContent = '50%';
+                
+                // 移除元數據
+                if (removeMetadata) {
+                    pdfDoc.setTitle('');
+                    pdfDoc.setAuthor('');
+                    pdfDoc.setSubject('');
+                    pdfDoc.setKeywords([]);
+                    pdfDoc.setProducer('');
+                    pdfDoc.setCreator('');
+                }
+                
+                // 設置壓縮選項
+                let saveOptions = {};
+                
+                if (compressImages) {
+                    // 根據壓縮等級設置不同的選項
+                    switch(level) {
+                        case 'low':
+                            saveOptions = {
+                                useObjectStreams: false,
+                                addDefaultPage: false
+                            };
+                            break;
+                        case 'medium':
+                            saveOptions = {
+                                useObjectStreams: true,
+                                addDefaultPage: false
+                            };
+                            break;
+                        case 'high':
+                            saveOptions = {
+                                useObjectStreams: true,
+                                addDefaultPage: false,
+                                objectsPerTick: 50
+                            };
+                            break;
+                    }
+                }
+                
+                // 更新進度
+                document.getElementById('compress-bar').style.width = '80%';
+                document.getElementById('compress-progress-text').textContent = '80%';
+                
+                // 保存壓縮後的PDF
+                const pdfBytes = await pdfDoc.save(saveOptions);
+                const compressedSize = pdfBytes.length;
+                
+                // 更新進度
+                document.getElementById('compress-bar').style.width = '100%';
+                document.getElementById('compress-progress-text').textContent = '100%';
+                
+                // 計算壓縮比例
+                const savedBytes = originalSize - compressedSize;
+                const savedPercent = ((savedBytes / originalSize) * 100).toFixed(1);
+                
+                // 顯示結果
+                document.getElementById('original-size').textContent = formatFileSize(originalSize);
+                document.getElementById('compressed-size').textContent = formatFileSize(compressedSize);
+                document.getElementById('saved-percent').textContent = savedPercent + '% (' + formatFileSize(savedBytes) + ')';
+                document.getElementById('compress-result').classList.remove('hidden');
+                
+                // 下載壓縮後的檔案
+                download(pdfBytes, 'compressed.pdf', 'application/pdf');
+                
+            } catch(e) {
+                alert('壓縮失敗: ' + e.message);
+            }
+            
+            document.getElementById('compress-progress').classList.add('hidden');
+            setLoading('btn-compress', false, '🗜️ 開始壓縮');
+        }
+        
+        // 格式化檔案大小
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+        }
+
+        // 6. 加密/解密 PDF
+        function toggleEncryptMode() {
+            const mode = document.querySelector('input[name="encrypt-mode"]:checked').value;
+            const encryptOptions = document.getElementById('encrypt-options');
+            const decryptOptions = document.getElementById('decrypt-options');
+            const btn = document.getElementById('btn-encrypt');
+            
+            if (mode === 'encrypt') {
+                encryptOptions.classList.remove('hidden');
+                decryptOptions.classList.add('hidden');
+                btn.innerHTML = '🔒 執行加密';
+                btn.className = 'btn bg-indigo-600 text-white';
+            } else {
+                encryptOptions.classList.add('hidden');
+                decryptOptions.classList.remove('hidden');
+                btn.innerHTML = '🔓 解除密碼';
+                btn.className = 'btn bg-green-600 text-white';
+            }
+        }
+        
+        async function runEncrypt() {
+            const file = document.getElementById('encrypt-file').files[0];
+            if (!file) return alert('請選擇PDF檔案');
+            
+            const mode = document.querySelector('input[name="encrypt-mode"]:checked').value;
+            
+            setLoading('btn-encrypt', true);
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfDoc = await PDFDocument.load(arrayBuffer);
+                
+                if (mode === 'encrypt') {
+                    const password = document.getElementById('encrypt-password').value;
+                    const confirmPassword = document.getElementById('encrypt-password-confirm').value;
+                    
+                    if (!password || password.length < 4) {
+                        throw new Error('密碼至少需要4位字符');
+                    }
+                    
+                    if (password !== confirmPassword) {
+                        throw new Error('兩次輸入的密碼不一致');
+                    }
+                    
+                    // 注意: pdf-lib 目前不支持加密，這裡提供提示
+                    alert('提示：pdf-lib庫目前不支持PDF加密功能。建議使用專業PDF軟件（如Adobe Acrobat）或線上服務進行加密。\n\n您的PDF將以未加密形式保存。');
+                    
+                    const pdfBytes = await pdfDoc.save();
+                    download(pdfBytes, 'output.pdf', 'application/pdf');
+                    
+                } else {
+                    // 解密模式
+                    const password = document.getElementById('decrypt-password').value;
+                    if (!password) {
+                        throw new Error('請輸入密碼');
+                    }
+                    
+                    // 嘗試使用密碼加載
+                    alert('提示：pdf-lib庫目前不支持PDF解密功能。如果PDF已加密，請使用專業PDF軟件解密後再處理。');
+                    
+                    const pdfBytes = await pdfDoc.save();
+                    download(pdfBytes, 'decrypted.pdf', 'application/pdf');
+                }
+                
+            } catch(e) {
+                alert('處理失敗: ' + e.message);
+            }
+            
+            setLoading('btn-encrypt', false, mode === 'encrypt' ? '🔒 執行加密' : '🔓 解除密碼');
+        }
+        
+        // 7. 添加頁碼
+        async function runPageNumber() {
+            const file = document.getElementById('pagenumber-file').files[0];
+            if (!file) return alert('請選擇PDF檔案');
+            
+            const position = document.getElementById('page-position').value;
+            const fontSize = parseInt(document.getElementById('page-fontsize').value);
+            const format = document.getElementById('page-format').value;
+            const startNum = parseInt(document.getElementById('page-start').value);
+            
+            setLoading('btn-pagenumber', true);
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfDoc = await PDFDocument.load(arrayBuffer);
+                const pages = pdfDoc.getPages();
+                const totalPages = pages.length;
+                
+                // 使用內建字體
+                const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                
+                pages.forEach((page, index) => {
+                    const { width, height } = page.getSize();
+                    const pageNum = startNum + index;
+                    
+                    // 根據格式生成頁碼文字
+                    let text = '';
+                    switch(format) {
+                        case 'number':
+                            text = `${pageNum}`;
+                            break;
+                        case 'page-number':
+                            text = `第 ${pageNum} 頁`;
+                            break;
+                        case 'number-total':
+                            text = `${pageNum}/${totalPages}`;
+                            break;
+                        case 'page-total':
+                            text = `第 ${pageNum} 頁，共 ${totalPages} 頁`;
+                            break;
+                    }
+                    
+                    // 計算文字寬度
+                    const textWidth = font.widthOfTextAtSize(text, fontSize);
+                    
+                    // 根據位置計算座標
+                    let x, y;
+                    const margin = 30;
+                    
+                    switch(position) {
+                        case 'bottom-center':
+                            x = (width - textWidth) / 2;
+                            y = margin;
+                            break;
+                        case 'bottom-right':
+                            x = width - textWidth - margin;
+                            y = margin;
+                            break;
+                        case 'bottom-left':
+                            x = margin;
+                            y = margin;
+                            break;
+                        case 'top-center':
+                            x = (width - textWidth) / 2;
+                            y = height - margin - fontSize;
+                            break;
+                        case 'top-right':
+                            x = width - textWidth - margin;
+                            y = height - margin - fontSize;
+                            break;
+                        case 'top-left':
+                            x = margin;
+                            y = height - margin - fontSize;
+                            break;
+                    }
+                    
+                    // 繪製頁碼
+                    page.drawText(text, {
+                        x: x,
+                        y: y,
+                        size: fontSize,
+                        font: font,
+                        color: rgb(0.3, 0.3, 0.3)
+                    });
+                });
+                
+                const pdfBytes = await pdfDoc.save();
+                download(pdfBytes, 'numbered.pdf', 'application/pdf');
+                
+                alert('✅ 頁碼添加完成！');
+                
+            } catch(e) {
+                alert('添加頁碼失敗: ' + e.message);
+            }
+            
+            setLoading('btn-pagenumber', false, '🔢 添加頁碼');
+        }
+
+        // 8. PDF 轉圖
+        async function runPdfToImage() {
+            const file = document.getElementById('p2i-file').files[0];
+            if(!file) return alert('請選擇檔案');
+            setLoading('btn-p2i', true);
+            document.getElementById('p2i-progress').classList.remove('hidden');
+            try {
+                const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
+                const zip = new JSZip();
+                const scale = parseFloat(document.getElementById('p2i-scale').value);
+                const format = document.getElementById('p2i-format').value;
+                
+                for(let i=1; i<=pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const vp = page.getViewport({ scale: scale });
+                    const cvs = document.createElement('canvas'); 
+                    cvs.width = vp.width; 
+                    cvs.height = vp.height;
+                    await page.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
+                    
+                    const blob = await new Promise(r=>cvs.toBlob(r, `image/${format}`, format === 'jpeg' ? 0.95 : undefined));
+                    zip.file(`page_${String(i).padStart(3, '0')}.${format==='jpeg'?'jpg':'png'}`, blob);
+                    
+                    const progress = Math.round(i/pdf.numPages*100);
+                    document.getElementById('p2i-bar').style.width = progress+'%';
+                    document.getElementById('p2i-progress-text').textContent = progress + '%';
+                }
+                download(await zip.generateAsync({type:"blob"}), "pdf_images.zip", "application/zip");
+            } catch(e) { alert(e.message); }
+            document.getElementById('p2i-progress').classList.add('hidden');
+            setLoading('btn-p2i', false, '🎨 開始轉換 (Zip)');
+        }
+
+        // 5. 圖轉 PDF (新版 - 帶預覽和排序)
+        let imageFiles = []; // 儲存檔案物件
+        
+        function handleImagesWithPreview(input) {
+            const files = Array.from(input.files);
+            if (files.length === 0) return;
+            
+            // 使用自然排序
+            const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+            files.sort((a, b) => collator.compare(a.name, b.name));
+            
+            imageFiles = files;
+            renderImagePreviews();
+            
+            // 顯示預覽區
+            document.getElementById('i2p-preview-container').classList.remove('hidden');
+            
+            // 清空 input 讓同檔案可以重複選取
+            input.value = '';
+        }
+        
+        function renderImagePreviews() {
+            const container = document.getElementById('i2p-preview-container');
+            container.innerHTML = '';
+            
+            imageFiles.forEach((file, index) => {
+                const card = document.createElement('div');
+                card.className = 'img-card';
+                card.dataset.index = index;
+                
+                // 檔名
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'img-card-name';
+                nameDiv.textContent = `📄 ${file.name}`;
+                
+                // 圖片
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.alt = file.name;
+                
+                // 控制按鈕
+                const controls = document.createElement('div');
+                controls.className = 'img-card-controls';
+                
+                const btnUp = document.createElement('button');
+                btnUp.className = 'img-card-btn';
+                btnUp.innerHTML = '▲ 上移';
+                btnUp.onclick = () => moveImageUp(index);
+                
+                const btnDown = document.createElement('button');
+                btnDown.className = 'img-card-btn';
+                btnDown.innerHTML = '▼ 下移';
+                btnDown.onclick = () => moveImageDown(index);
+                
+                const btnDel = document.createElement('button');
+                btnDel.className = 'img-card-btn delete';
+                btnDel.innerHTML = '🗑️ 刪除';
+                btnDel.onclick = () => deleteImage(index);
+                
+                controls.appendChild(btnUp);
+                controls.appendChild(btnDown);
+                controls.appendChild(btnDel);
+                
+                card.appendChild(nameDiv);
+                card.appendChild(img);
+                card.appendChild(controls);
+                container.appendChild(card);
+            });
+        }
+        
+        function moveImageUp(index) {
+            if (index === 0) return;
+            [imageFiles[index], imageFiles[index - 1]] = [imageFiles[index - 1], imageFiles[index]];
+            renderImagePreviews();
+        }
+        
+        function moveImageDown(index) {
+            if (index === imageFiles.length - 1) return;
+            [imageFiles[index], imageFiles[index + 1]] = [imageFiles[index + 1], imageFiles[index]];
+            renderImagePreviews();
+        }
+        
+        function deleteImage(index) {
+            imageFiles.splice(index, 1);
+            if (imageFiles.length === 0) {
+                document.getElementById('i2p-preview-container').classList.add('hidden');
+            }
+            renderImagePreviews();
+        }
+        
+        async function runImg2PdfNew() {
+            if(!imageFiles.length) return alert('請選擇圖片');
+            setLoading('btn-i2p', true);
+            try {
+                const doc = await PDFDocument.create();
+                for(let f of imageFiles) {
+                    const imgBytes = await f.arrayBuffer();
+                    let img;
+                    if(f.type === 'image/jpeg' || f.type === 'image/jpg') img = await doc.embedJpg(imgBytes);
+                    else if(f.type === 'image/png') img = await doc.embedPng(imgBytes);
+                    else continue;
+                    const page = doc.addPage([img.width, img.height]);
+                    page.drawImage(img, { x:0, y:0, width:img.width, height:img.height });
+                }
+                download(await doc.save(), "images.pdf", "application/pdf");
+            } catch(e) { alert(e.message); }
+            setLoading('btn-i2p', false, '📑 生成 PDF');
+        }
+
+        // 6. 浮水印
+        function toggleWmType() {
+            const type = document.querySelector('input[name="wm-type"]:checked').value;
+            document.getElementById('wm-text-opts').classList.toggle('hidden', type !== 'text');
+            document.getElementById('wm-img-opts').classList.toggle('hidden', type !== 'image');
+        }
+        
+        async function runWatermark() {
+            const file = document.getElementById('wm-file').files[0];
+            if(!file) return alert('請選擇 PDF 檔案');
+            
+            const type = document.querySelector('input[name="wm-type"]:checked').value;
+            
+            if(type === 'text') {
+                const text = document.getElementById('wm-text').value;
+                if(!text) return alert('請輸入浮水印文字');
+            } else {
+                const imgFile = document.getElementById('wm-img-file').files[0];
+                if(!imgFile) return alert('請選擇浮水印圖片');
+            }
+            
+            setLoading('btn-wm', true);
+            try {
+                const doc = await PDFDocument.load(await file.arrayBuffer());
+                const pages = doc.getPages();
+                
+                if(type === 'text') {
+                    const text = document.getElementById('wm-text').value;
+                    const fontSize = parseInt(document.getElementById('wm-font-size').value);
+                    const opacity = parseFloat(document.getElementById('wm-opacity').value);
+                    const font = await doc.embedFont(StandardFonts.Helvetica);
+                    
+                    pages.forEach(p => {
+                        const { width, height } = p.getSize();
+                        // 居中並旋轉45度
+                        p.drawText(text, { 
+                            x: width / 2 - (text.length * fontSize * 0.3), 
+                            y: height / 2, 
+                            size: fontSize, 
+                            font, 
+                            color: rgb(0.5, 0.5, 0.5), 
+                            opacity: opacity, 
+                            rotate: degrees(45) 
+                        });
+                    });
+                } else {
+                    const imgFile = document.getElementById('wm-img-file').files[0];
+                    const imgBytes = await imgFile.arrayBuffer();
+                    const img = imgFile.type === 'image/png' ? await doc.embedPng(imgBytes) : await doc.embedJpg(imgBytes);
+                    
+                    pages.forEach(p => {
+                        const { width, height } = p.getSize();
+                        const imgSize = Math.min(width, height) * 0.3; // 圖片大小為頁面的30%
+                        p.drawImage(img, { 
+                            x: width / 2 - imgSize / 2, 
+                            y: height / 2 - imgSize / 2, 
+                            width: imgSize, 
+                            height: imgSize, 
+                            opacity: 0.5 
+                        });
+                    });
+                }
+                
+                download(await doc.save(), "watermarked.pdf", "application/pdf");
+            } catch(e) { alert('添加浮水印失敗: ' + e.message); }
+            setLoading('btn-wm', false, '💧 添加浮水印');
+        }
+
+        // 7. 旋轉
+        async function runRotate() {
+            const file = document.getElementById('rotate-file').files[0];
+            if(!file) return alert('請選擇檔案');
+            setLoading('btn-rotate', true);
+            try {
+                const doc = await PDFDocument.load(await file.arrayBuffer());
+                const deg = parseInt(document.getElementById('rotate-deg').value);
+                const selected = Array.from(document.getElementById('rotate-grid').children).map((el,i)=>el.classList.contains('selected')?i:null).filter(x=>x!==null);
+                const pages = doc.getPages();
+                (selected.length ? selected : pages.map((_,i)=>i)).forEach(i => {
+                    pages[i].setRotation(degrees(pages[i].getRotation().angle + deg));
+                });
+                download(await doc.save(), "rotated.pdf", "application/pdf");
+            } catch(e) { alert(e.message); }
+            setLoading('btn-rotate', false, '🔄 執行旋轉');
+        }
+
+        // 8. 刪除
+        async function runDelete() {
+            const file = document.getElementById('delete-file').files[0];
+            if(!file) return alert('請選擇檔案');
+            setLoading('btn-delete', true);
+            try {
+                const doc = await PDFDocument.load(await file.arrayBuffer());
+                const toDel = Array.from(document.getElementById('delete-grid').children).map((el,i)=>el.classList.contains('selected')?i:null).filter(x=>x!==null);
+                if(!toDel.length) throw new Error('請選擇刪除頁面');
+                const newDoc = await PDFDocument.create();
+                const keep = doc.getPageIndices().filter(i => !toDel.includes(i));
+                (await newDoc.copyPages(doc, keep)).forEach(p=>newDoc.addPage(p));
+                download(await newDoc.save(), "deleted.pdf", "application/pdf");
+            } catch(e) { alert(e.message); }
+            setLoading('btn-delete', false, '🗑️ 確認刪除');
+        }
+
+        // ==================== 簽名功能 ====================
+        let signatureCanvas, signatureCtx;
+        let isDrawingSignature = false;
+        let signatureType = 'draw';
+        let signatureImageData = null;
+
+        function openSignatureDialog() {
+            const dialog = document.getElementById('signature-dialog');
+            dialog.classList.remove('hidden');
+            dialog.style.display = 'flex';
+            
+            // 初始化手繪畫布
+            if (!signatureCanvas) {
+                signatureCanvas = document.getElementById('signature-canvas');
+                signatureCtx = signatureCanvas.getContext('2d');
+                
+                // 設置畫布事件
+                signatureCanvas.addEventListener('mousedown', startDrawingSignature);
+                signatureCanvas.addEventListener('mousemove', drawSignature);
+                signatureCanvas.addEventListener('mouseup', stopDrawingSignature);
+                signatureCanvas.addEventListener('mouseleave', stopDrawingSignature);
+                
+                // 觸控支援
+                signatureCanvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const mouseEvent = new MouseEvent('mousedown', {
+                        clientX: touch.clientX,
+                        clientY: touch.clientY
+                    });
+                    signatureCanvas.dispatchEvent(mouseEvent);
+                });
+                signatureCanvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const mouseEvent = new MouseEvent('mousemove', {
+                        clientX: touch.clientX,
+                        clientY: touch.clientY
+                    });
+                    signatureCanvas.dispatchEvent(mouseEvent);
+                });
+                signatureCanvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    const mouseEvent = new MouseEvent('mouseup', {});
+                    signatureCanvas.dispatchEvent(mouseEvent);
+                });
+            }
+            
+            clearSignatureCanvas();
+            
+            // 文字預覽事件
+            document.getElementById('signature-text-input')?.addEventListener('input', updateSignatureTextPreview);
+            document.getElementById('signature-font')?.addEventListener('change', updateSignatureTextPreview);
+            document.getElementById('signature-fontsize')?.addEventListener('change', updateSignatureTextPreview);
+        }
+
+        function closeSignatureDialog() {
+            const dialog = document.getElementById('signature-dialog');
+            dialog.classList.add('hidden');
+            dialog.style.display = 'none';
+            setTool('select'); // 回到選取工具
+        }
+
+        function switchSignatureType(type) {
+            signatureType = type;
+            
+            // 更新按鈕樣式
+            document.querySelectorAll('.sig-type-btn').forEach(btn => {
+                btn.style.borderColor = '#e5e7eb';
+                btn.style.background = 'white';
+                btn.style.color = '#64748b';
+            });
+            
+            const activeBtn = document.getElementById(`sig-${type}-btn`);
+            activeBtn.style.borderColor = '#3b82f6';
+            activeBtn.style.background = '#eff6ff';
+            activeBtn.style.color = '#1e40af';
+            
+            // 顯示對應區域
+            document.getElementById('sig-draw-area').classList.toggle('hidden', type !== 'draw');
+            document.getElementById('sig-text-area').classList.toggle('hidden', type !== 'text');
+            document.getElementById('sig-image-area').classList.toggle('hidden', type !== 'image');
+        }
+
+        function startDrawingSignature(e) {
+            isDrawingSignature = true;
+            const rect = signatureCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (signatureCanvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (signatureCanvas.height / rect.height);
+            
+            signatureCtx.beginPath();
+            signatureCtx.moveTo(x, y);
+            signatureCtx.lineWidth = 2;
+            signatureCtx.lineCap = 'round';
+            // 使用顏色選擇器的顏色
+            const color = document.getElementById('signature-draw-color').value;
+            signatureCtx.strokeStyle = color;
+        }
+
+        function drawSignature(e) {
+            if (!isDrawingSignature) return;
+            
+            const rect = signatureCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (signatureCanvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (signatureCanvas.height / rect.height);
+            
+            signatureCtx.lineTo(x, y);
+            signatureCtx.stroke();
+        }
+
+        function stopDrawingSignature() {
+            isDrawingSignature = false;
+        }
+
+        function clearSignatureCanvas() {
+            if (signatureCtx) {
+                signatureCtx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+            }
+        }
+
+        function updateSignatureTextPreview() {
+            const text = document.getElementById('signature-text-input').value || '簽名預覽';
+            const font = document.getElementById('signature-font').value;
+            const size = document.getElementById('signature-fontsize').value + 'px';
+            const color = document.getElementById('signature-text-color').value;
+            const preview = document.getElementById('signature-text-preview');
+            
+            preview.textContent = text;
+            preview.style.fontFamily = font;
+            preview.style.fontSize = size;
+            preview.style.color = color;
+        }
+
+        function previewSignatureImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    signatureImageData = e.target.result;
+                    const preview = document.getElementById('signature-image-preview');
+                    const img = document.getElementById('signature-image-preview-img');
+                    img.src = e.target.result;
+                    preview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        async function insertSignature() {
+            let signatureObj = null;
+            
+            if (signatureType === 'draw') {
+                // 檢查畫布是否有內容
+                const imageData = signatureCtx.getImageData(0, 0, signatureCanvas.width, signatureCanvas.height);
+                const hasContent = imageData.data.some((pixel, i) => i % 4 === 3 && pixel > 0);
+                
+                if (!hasContent) {
+                    alert('請先繪製簽名');
+                    return;
+                }
+                
+                // 將畫布轉換為圖片
+                const dataUrl = signatureCanvas.toDataURL('image/png');
+                const img = new Image();
+                img.src = dataUrl;
+                
+                await new Promise(resolve => { img.onload = resolve; });
+                
+                signatureObj = {
+                    type: 'image',
+                    x: 100,
+                    y: 100,
+                    w: 150,
+                    h: 75,
+                    imgElement: img,
+                    src: dataUrl
+                };
+                
+            } else if (signatureType === 'text') {
+                const text = document.getElementById('signature-text-input').value;
+                if (!text) {
+                    alert('請輸入簽名文字');
+                    return;
+                }
+                
+                const font = document.getElementById('signature-font').value;
+                const fontSize = parseInt(document.getElementById('signature-fontsize').value);
+                const color = document.getElementById('signature-text-color').value;
+                
+                signatureObj = {
+                    type: 'text',
+                    content: text,
+                    x: 100,
+                    y: 100,
+                    fontSize: fontSize,
+                    fontFamily: font,
+                    color: color
+                };
+                
+            } else if (signatureType === 'image') {
+                if (!signatureImageData) {
+                    alert('請選擇簽名圖片');
+                    return;
+                }
+                
+                const img = new Image();
+                img.src = signatureImageData;
+                
+                await new Promise(resolve => { img.onload = resolve; });
+                
+                signatureObj = {
+                    type: 'image',
+                    x: 100,
+                    y: 100,
+                    w: 150,
+                    h: 150 * (img.height / img.width),
+                    imgElement: img,
+                    src: signatureImageData
+                };
+            }
+            
+            if (signatureObj) {
+                canvasObjects.push(signatureObj);
+                saveHistory();
+                redrawCanvas();
+                closeSignatureDialog();
+                
+                // 自動切換到選取工具
+                setTool('select');
+                selectedObject = signatureObj;
+                redrawCanvas();
+            }
+        }
+    </script>
+</body>
+</html>
